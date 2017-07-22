@@ -114,6 +114,10 @@ void JackApp::connect_ports() {
 }
 
 int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    std::cerr << "usage: " << argv[0] << " <client_name>" << std::endl;
+    return 1;
+  }
   JackApp my_app(argv[1]);
   my_app.activate();
   my_app.run();
