@@ -24,13 +24,13 @@ int process(jack_nframes_t nframes, void *arg)
 int srate(jack_nframes_t nframes, void *arg)
 
 {
-	printf("the sample rate is now %lu/sec\n", nframes);
+	std::cout << "the sample rate is now" << nframes << "/sec" << std::endl;
 	return 0;
 }
 
 void error(const char *desc)
 {
-	fprintf(stderr, "JACK error: %s\n", desc);
+	std::cerr << "JACK error: " << desc << std::endl;
 }
 
 void jack_shutdown(void *arg)
@@ -48,7 +48,7 @@ int main(int argc, char *argv[])
 
 
 	if(argc < 2) {
-		fprintf(stderr, "usage: jack_test <client_name>\n");
+		std::cerr << "usage: jack_test <client_name>" << std::endl;
 		return 1;
 	}
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
 
 	// Create our jack client(named after the argument)
 	if((client = jack_client_open(argv[1], JackNoStartServer, NULL)) == 0) {
-		fprintf(stderr, "jack server not running?\n");
+		std::cerr << "jack server not running?" << std::endl;
 		return 1;
 	}
 
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
 	// Register a callback for if the jack server shuts down
 	jack_on_shutdown(client, jack_shutdown, 0);
 
-	printf("engine sample rate: %lu\n", jack_get_sample_rate(client));
+	std::cout << "engine sample rate: " << jack_get_sample_rate(client) << std::endl;
 
 	// Create two audio ports
 	input_port = jack_port_register(client, "input", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
@@ -78,26 +78,26 @@ int main(int argc, char *argv[])
 
 	// Activate the client
 	if(jack_activate(client)) {
-		fprintf(stderr, "cannot activate client");
+		std::cerr << "cannot activate client";
 		return 1;
 	}
 
 	// Get an array of all physical capture ports
 	if((ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput)) == NULL) {
-		fprintf(stderr, "Cannot find any physical capture ports\n");
+		std::cerr << "Cannot find any physical capture ports" << std::endl;
 		exit(1);
 	}
 	
 	// Connect our input_port to the first physical capture port we found
 	if(jack_connect(client, ports[0], jack_port_name(input_port))) {
-		fprintf(stderr, "cannot connect input ports\n");
+		std::cerr << "cannot connect input ports" << std::endl;
 	}
 
 	free(ports);
 
 	//Get an array of all physical output ports
 	if((ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical|JackPortIsInput)) == NULL) {
-		fprintf(stderr, "Cannot find any physical playback ports\n");
+		std::cerr << "Cannot find any physical playback ports" << std::endl;
 		exit(1);
 	}
 
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 	int i=0;
 	while(ports[i]!=NULL){
 		if(jack_connect(client, jack_port_name(output_port), ports[i])) {
-			fprintf(stderr, "cannot connect output ports\n");
+			std::cerr << "cannot connect output ports" << std::endl;
 		}
 		i++;
 	}
