@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
   }
 
   // Get an array of all physical capture ports
-  if((ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput)) == NULL) {
+  if((ports = jack_get_ports(client, NULL, JACK_DEFAULT_AUDIO_TYPE, JackPortIsPhysical|JackPortIsOutput)) == NULL) {
     std::cerr << "Cannot find any physical capture ports" << std::endl;
     exit(1);
   }
@@ -93,10 +93,10 @@ int main(int argc, char *argv[])
     std::cerr << "cannot connect input ports" << std::endl;
   }
 
-  free(ports);
+  jack_free(ports);
 
   //Get an array of all physical output ports
-  if((ports = jack_get_ports(client, NULL, NULL, JackPortIsPhysical|JackPortIsInput)) == NULL) {
+  if((ports = jack_get_ports(client, NULL, JACK_DEFAULT_AUDIO_TYPE, JackPortIsPhysical|JackPortIsTerminal|JackPortIsInput)) == NULL) {
     std::cerr << "Cannot find any physical playback ports" << std::endl;
     exit(1);
   }
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
     i++;
   }
 
-  free(ports);
+  jack_free(ports);
 
   // We spin here slowly while jack sends us callbacks to the functions we registered
   for(;;)
