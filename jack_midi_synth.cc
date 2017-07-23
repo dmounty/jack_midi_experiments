@@ -60,33 +60,28 @@ float Noise::getAmplitude(float phase_step) {
   return distribution(generator);
 }
 
-
 class Envelope {
-  private:
+  protected:
     float attack;
     float decay;
-    float sustain;
-    float release;
     float delay;
-    float up_time;
-    float up_weight;
     bool down;
     bool sounding;
     bool pedal;
+    float up_time;
+    float up_weight;
   public:
-    Envelope(float, float, float, float, float);
+    Envelope(float, float, float);
     void pushDown() { down = true; sounding = true; }
     void liftUp() { down = false; }
-    bool isSounding() { return sounding; }
     void setPedal(bool this_pedal) { pedal=this_pedal; }
-    float getWeight(float);
+    bool isSounding() { return sounding; }
+    virtual float getWeight(float) = 0;
 };
 
-Envelope::Envelope(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) {
+Envelope::Envelope(float init_attack, float init_decay, float init_delay=0.0) {
   attack = init_attack;
   decay = init_decay;
-  sustain = init_sustain;
-  release = init_release;
   delay = init_delay;
   down = false;
   sounding = false;
@@ -95,7 +90,22 @@ Envelope::Envelope(float init_attack, float init_decay, float init_sustain, floa
   up_weight = 0.0;
 }
 
-float Envelope::getWeight(float time) {
+
+class LADSR : public Envelope {
+  private:
+    float sustain;
+    float release;
+  public:
+    LADSR(float, float, float, float, float);
+    float getWeight(float);
+};
+
+LADSR::LADSR(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay) {
+  sustain = init_sustain;
+  release = init_release;
+}
+
+float LADSR::getWeight(float time) {
   float weight = 0.0;
   if (sounding) {
     if        (down && time < delay) {
@@ -123,6 +133,38 @@ float Envelope::getWeight(float time) {
 }
 
 
+class LAD : public Envelope {
+  public:
+    LAD(float init_attack, float init_decay, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay) {}
+    float getWeight(float);
+};
+
+float LAD::getWeight(float time) {
+  float weight = 0.0;
+  if (sounding) {
+    if        (down && time < delay) {
+      weight = 0.0;
+      up_time = time;
+      up_weight = weight;
+    } else if (down && time < delay + attack) {
+      weight = (time - delay)/attack;
+      up_time = time;
+      up_weight = weight;
+    } else {
+      weight = up_weight +(-up_weight)*(time - up_time) / decay;
+      if (weight <= 0.0) sounding = false;
+    }
+  }
+  return weight;
+}
+
+struct OscEnvMix {
+  OscEnvMix(Oscillator* init_oscillator, Envelope* init_envelope, float init_mix) : oscillator(init_oscillator), envelope(init_envelope), mix(init_mix) {}
+  Oscillator* oscillator;
+  Envelope* envelope;
+  float mix;
+};
+
 class Voice {
   private:
     float pitch;
@@ -131,23 +173,23 @@ class Voice {
     float mod_wheel;
     float expression;
     float aftertouch;
-    Envelope envelope;
-    std::list<std::pair<Oscillator*, float>> oscillators;
+    Envelope* envelope;
+    std::list<OscEnvMix> osc_env_mixes;
     int trigger_frame;
     int sample_rate;
   public:
     Voice(int);
     ~Voice();
-    bool isSounding() { return envelope.isSounding(); }
-    void trigger_voice(float, int);
-    void release_voice() { envelope.liftUp(); }
+    bool isSounding();
+    void triggerVoice(float, int);
+    void releaseVoice();
     void update(float, float, float, float, float);
     void render(float*, int, int);
     float freq(int note) { return pow(2.0f, ((note - 69.0) / 12.0)) * 440.0; }
     void setSampleRate(int rate) { sample_rate = rate; }
 };
 
-Voice::Voice(int note) : envelope(0.2, 0.1, 0.8, 0.5) {
+Voice::Voice(int note) {
   pitch = freq(note);
   trigger_frame = 0;
   velocity = 0.0;
@@ -155,21 +197,41 @@ Voice::Voice(int note) : envelope(0.2, 0.1, 0.8, 0.5) {
   mod_wheel = 0.0;
   expression = 1.0;
   aftertouch = 0.0;
-  oscillators.push_back(std::pair<Oscillator*, float>(new Sine, 0.6));
-  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(-2.0), 0.5));
-  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(7.0/12.0), 0.3));
-  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(1.0), 0.2));
-  oscillators.push_back(std::pair<Oscillator*, float>(new Noise(), 0.01));
+  envelope = new LADSR(0.2, 0.1, 0.8, 0.5);
+  osc_env_mixes.push_back(OscEnvMix(new Sine(-2.0), new LAD(0.05, 0.5), 0.7)); // Sub
+  osc_env_mixes.push_back(OscEnvMix(new Sine(0.0), new LADSR(0.1, 0.2, 0.8, 0.5), 0.6)); // Main
+  osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0), new LADSR(0.1, 0.2, 0.7, 0.5), 0.5)); // Fifth
+  osc_env_mixes.push_back(OscEnvMix(new Sine(1.0), new LADSR(0.0, 0.3, 0.6, 0.5), 0.4)); // Octave
+  osc_env_mixes.push_back(OscEnvMix(new Noise(), new LAD(0.1, 1.0), 0.01)); // Sub
 }
 
 Voice::~Voice() {
-  for (auto oscillator: oscillators) delete oscillator.first;
+  for (auto osc_env_mix: osc_env_mixes)  {
+    delete osc_env_mix.oscillator;
+    delete osc_env_mix.envelope;
+  }
 }
 
-void Voice::trigger_voice(float new_velocity, int first_frame) {
+bool Voice::isSounding() {
+  if (envelope->isSounding()) {
+    return true;
+  }
+  for (auto osc_env_mix: osc_env_mixes) {
+    if (osc_env_mix.envelope->isSounding()) return true;
+  }
+  return false;
+}
+
+void Voice::triggerVoice(float new_velocity, int first_frame) {
   velocity = new_velocity;
   trigger_frame = first_frame;
-  envelope.pushDown();
+  envelope->pushDown();
+  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->pushDown();
+}
+
+void Voice::releaseVoice() {
+  envelope->liftUp();
+  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->liftUp();
 }
 
 void Voice::update(float new_bend, float new_mod_wheel, float new_expression, float new_aftertouch, float new_sustain) {
@@ -177,17 +239,19 @@ void Voice::update(float new_bend, float new_mod_wheel, float new_expression, fl
   mod_wheel = new_mod_wheel;
   expression = new_expression;
   aftertouch = new_aftertouch;
-  envelope.setPedal(new_sustain > 0.5);
+  bool pedal = new_sustain > 0.5;
+  envelope->setPedal(pedal);
+  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
 }
 
 void Voice::render(float* out, int global_frame, int length) {
   float freq = pow(2.0, bend) * pitch / sample_rate;
-  for (auto oscillator: oscillators) {
+  for (auto osc_env_mix: osc_env_mixes) {
     for (int frame=0; frame < length; ++frame) {
       int frames_since_trigger = frame + global_frame - trigger_frame;
       float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
-      float weight = expression * velocity * envelope.getWeight(time_since_trigger);
-      out[frame] += weight * oscillator.second * oscillator.first->getAmplitude(freq);
+      float voice_weight = expression * velocity * envelope->getWeight(time_since_trigger);
+      out[frame] += voice_weight * osc_env_mix.mix * osc_env_mix.envelope->getWeight(time_since_trigger) * osc_env_mix.oscillator->getAmplitude(freq);
     }
   }
 }
@@ -285,9 +349,9 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
         channel = event.buffer[0] & 0xF;
       }
       if (operation == 9) {
-        voices[event.buffer[1]]->trigger_voice(event.buffer[1] / 127.0, global_frame);
+        voices[event.buffer[1]]->triggerVoice(event.buffer[1] / 127.0, global_frame);
       } else if (operation == 8) {
-        voices[event.buffer[1]]->release_voice();
+        voices[event.buffer[1]]->releaseVoice();
       } else if (operation == 11) {
         if (event.buffer[1] == 1) {
           mod_wheel = event.buffer[2] / 127.0;
