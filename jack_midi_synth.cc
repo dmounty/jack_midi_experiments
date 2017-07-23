@@ -11,20 +11,31 @@
 #include <jack/jack.h>
 #include <jack/midiport.h>
 
+
 class Oscillator {
-  private:
+  protected:
     float phase;
     float offset;
   public:
     Oscillator(float init_phase=6.2831853) : phase(init_phase), offset(0.0) {}
-    float getAmplitude(float);
+    virtual float getAmplitude(float) = 0;
 };
 
-float Oscillator::getAmplitude(float phase_step) {
-  offset += phase_step * phase;
+
+class Sine : public Oscillator {
+  private:
+    float tuning;
+  public:
+    Sine(float tune=0.0) : Oscillator(), tuning(pow(2.0, tune)) {}
+    virtual float getAmplitude(float);
+};
+
+float Sine::getAmplitude(float phase_step) {
+  offset += phase_step * tuning * phase;
   offset = fmod(offset, phase);
   return sin(offset);
-};
+}
+
 
 class Envelope {
   private:
@@ -88,7 +99,6 @@ float Envelope::getWeight(float time) {
 }
 
 
-
 class Voice {
   private:
     float pitch;
@@ -98,11 +108,12 @@ class Voice {
     float expression;
     float aftertouch;
     Envelope envelope;
-    Oscillator oscillator;
+    std::list<Oscillator*> oscillators;
     int trigger_frame;
     int sample_rate;
   public:
-    Voice(int note) : pitch(freq(note)), trigger_frame(0), velocity(0.0), bend(0.0), mod_wheel(0.0), expression(1.0), aftertouch(0.0), envelope(0.2, 0.1, 0.8, 0.5) { }
+    Voice(int);
+    ~Voice();
     bool isSounding() { return envelope.isSounding(); }
     void trigger_voice(float, int);
     void release_voice() { envelope.liftUp(); }
@@ -111,6 +122,21 @@ class Voice {
     float freq(int note) { return pow(2.0f, ((note - 69.0) / 12.0)) * 440.0; }
     void setSampleRate(int rate) { sample_rate = rate; }
 };
+
+Voice::Voice(int note) : envelope(0.2, 0.1, 0.8, 0.5) {
+  pitch = freq(note);
+  trigger_frame = 0;
+  velocity = 0.0;
+  bend = 0.0;
+  mod_wheel = 0.0;
+  expression = 1.0;
+  aftertouch = 0.0;
+  oscillators.push_back(new Sine);
+}
+
+Voice::~Voice() {
+  for (auto oscillator: oscillators) delete oscillator;
+}
 
 void Voice::trigger_voice(float new_velocity, int first_frame) {
   velocity = new_velocity;
@@ -128,11 +154,13 @@ void Voice::update(float new_bend, float new_mod_wheel, float new_expression, fl
 
 void Voice::render(float* out, int global_frame, int length) {
   float freq = pow(2.0, bend) * pitch / sample_rate;
-  for (int frame=0; frame < length; ++frame) {
-    int frames_since_trigger = frame + global_frame - trigger_frame;
-    float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
-    float weight = expression * velocity * envelope.getWeight(time_since_trigger);
-    out[frame] += weight * oscillator.getAmplitude(freq);
+  for (auto oscillator: oscillators) {
+    for (int frame=0; frame < length; ++frame) {
+      int frames_since_trigger = frame + global_frame - trigger_frame;
+      float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
+      float weight = expression * velocity * envelope.getWeight(time_since_trigger);
+      out[frame] += weight * oscillator->getAmplitude(freq);
+    }
   }
 }
 
@@ -140,7 +168,7 @@ void Voice::render(float* out, int global_frame, int length) {
 class JackApp {
   private:
     jack_client_t *client;
-    static std::vector<Voice> voices;
+    static std::vector<Voice*> voices;
     static jack_nframes_t sample_rate;
     static std::list<jack_port_t*> midi_input_ports;
     static std::list<jack_port_t*> audio_output_ports;
@@ -151,26 +179,9 @@ class JackApp {
     static float aftertouch;
     static float sustain;
   public:
-    JackApp() {
-      jack_set_error_function(JackApp::error);
-      client = jack_client_open("Midi Synth", JackNoStartServer, NULL);
-      sample_rate = jack_get_sample_rate(client);
-      jack_set_process_callback(client, JackApp::process, 0);
-      jack_set_sample_rate_callback(client, JackApp::srate, 0);
-      jack_on_shutdown(client, JackApp::jack_shutdown, 0);
-      add_ports();
-    }
-    ~JackApp() {
-      jack_client_close(client);
-    }
-    void activate() {
-      if(jack_activate(client)) {
-        std::cerr << "Unable to activate client" << std::endl;
-        exit(1);
-      }
-      initialize_voices();
-      connect_ports();
-    }
+    JackApp();
+    ~JackApp();
+    void activate();
     void add_ports();
     void connect_ports();
     void run() {
@@ -193,7 +204,7 @@ class JackApp {
 jack_nframes_t JackApp::sample_rate = 0;
 std::list<jack_port_t*> JackApp::midi_input_ports;
 std::list<jack_port_t*> JackApp::audio_output_ports;
-std::vector<Voice> JackApp::voices;
+std::vector<Voice*> JackApp::voices;
 int JackApp::global_frame = 0;
 float JackApp::bend = 0.0;
 float JackApp::mod_wheel = 0.0;
@@ -201,10 +212,34 @@ float JackApp::expression = 1.0;
 float JackApp::aftertouch = 0.0;
 float JackApp::sustain = 0.0;
 
+JackApp::JackApp() {
+  jack_set_error_function(JackApp::error);
+  client = jack_client_open("Midi Synth", JackNoStartServer, NULL);
+  sample_rate = jack_get_sample_rate(client);
+  jack_set_process_callback(client, JackApp::process, 0);
+  jack_set_sample_rate_callback(client, JackApp::srate, 0);
+  jack_on_shutdown(client, JackApp::jack_shutdown, 0);
+  add_ports();
+}
+
+JackApp::~JackApp() {
+  jack_client_close(client);
+  for (auto voice: voices) delete voice;
+}
+
+void JackApp::activate() {
+  if(jack_activate(client)) {
+    std::cerr << "Unable to activate client" << std::endl;
+    exit(1);
+  }
+  initialize_voices();
+  connect_ports();
+}
+
 void JackApp::initialize_voices() {
   for(int i=0;i<128;i++) {
-    voices.push_back(Voice(i));
-    voices.back().setSampleRate(sample_rate);
+    voices.push_back(new Voice(i));
+    voices.back()->setSampleRate(sample_rate);
   }
 }
 
@@ -222,9 +257,9 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
         channel = event.buffer[0] & 0xF;
       }
       if (operation == 9) {
-        voices[event.buffer[1]].trigger_voice(event.buffer[1] / 127.0, global_frame);
+        voices[event.buffer[1]]->trigger_voice(event.buffer[1] / 127.0, global_frame);
       } else if (operation == 8) {
-        voices[event.buffer[1]].release_voice();
+        voices[event.buffer[1]]->release_voice();
       } else if (operation == 11) {
         if (event.buffer[1] == 1) {
           mod_wheel = event.buffer[2] / 127.0;
@@ -246,9 +281,9 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
     auto out = reinterpret_cast<float*>(jack_port_get_buffer(out_port, nframes));
     memset(out, 0, nframes * 4);
     for (int note_num=0; note_num < voices.size() ; ++note_num) {
-      voices[note_num].update(bend, mod_wheel, expression, aftertouch, sustain);
-      if (voices[note_num].isSounding()) {
-        voices[note_num].render(out, global_frame, nframes);
+      voices[note_num]->update(bend, mod_wheel, expression, aftertouch, sustain);
+      if (voices[note_num]->isSounding()) {
+        voices[note_num]->render(out, global_frame, nframes);
       }
     }
     for (int frame=0; frame < nframes; ++frame) {
