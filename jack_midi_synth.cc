@@ -155,7 +155,11 @@ Voice::Voice(int note) : envelope(0.2, 0.1, 0.8, 0.5) {
   mod_wheel = 0.0;
   expression = 1.0;
   aftertouch = 0.0;
-  oscillators.push_back(std::pair<Oscillator*, float>(new Sine, 1.0));
+  oscillators.push_back(std::pair<Oscillator*, float>(new Sine, 0.6));
+  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(-2.0), 0.5));
+  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(7.0/12.0), 0.3));
+  oscillators.push_back(std::pair<Oscillator*, float>(new Sine(1.0), 0.2));
+  oscillators.push_back(std::pair<Oscillator*, float>(new Noise(), 0.01));
 }
 
 Voice::~Voice() {
