@@ -6,10 +6,7 @@
 #include <list>
 
 #include <jack/jack.h>
-
-
-jack_port_t *midi_input_port;
-jack_port_t *audio_output_port;
+#include <jack/midiport.h>
 
 
 class JackApp {
@@ -21,9 +18,9 @@ class JackApp {
     static std::list<jack_port_t*> audio_input_ports;
     static std::list<jack_port_t*> audio_output_ports;
   public:
-    JackApp(char* name) {
+    JackApp() {
       jack_set_error_function(JackApp::error);
-      client = jack_client_open(name, JackNoStartServer, NULL);
+      client = jack_client_open("Echo", JackNoStartServer, NULL);
       sample_rate = jack_get_sample_rate(client);
       jack_set_process_callback(client, JackApp::process, 0);
       jack_set_sample_rate_callback(client, JackApp::srate, 0);
@@ -65,12 +62,30 @@ std::list<jack_port_t*> JackApp::audio_input_ports;
 std::list<jack_port_t*> JackApp::audio_output_ports;
 
 int JackApp::process(jack_nframes_t nframes, void *arg) {
-  if (audio_input_ports.size() > 0) {
+  if (audio_input_ports.size() > 0 && audio_output_ports.size() > 0) {
     auto in_port = audio_input_ports.front();
     auto in = jack_port_get_buffer(in_port, nframes);
-    for (auto out_port: audio_output_ports) {
-      auto out = jack_port_get_buffer(out_port, nframes);
-      memcpy(out, in, sizeof(jack_default_audio_sample_t) * nframes);
+    auto out_port = audio_output_ports.front();
+    auto out = jack_port_get_buffer(out_port, nframes);
+    memcpy(out, in, sizeof(jack_default_audio_sample_t) * nframes);
+  }
+  if (midi_input_ports.size() > 0 && midi_output_ports.size() >0) {
+    auto in_port = midi_input_ports.front();
+    auto in = jack_port_get_buffer(in_port, nframes);
+    auto out_port = midi_output_ports.front();
+    auto out = jack_port_get_buffer(out_port, nframes);
+    jack_midi_clear_buffer(out);
+    for (int i=0;i < jack_midi_get_event_count(in); ++i) {
+      jack_midi_event_t event;
+      jack_midi_event_get(&event, in, i);
+      int operation = 0;
+      int channel = 0;
+      if (event.size > 0) {
+        operation = event.buffer[0] >> 4;
+        channel = event.buffer[0] & 0xF;
+      }
+      jack_midi_data_t* data = jack_midi_event_reserve(out, event.time, event.size);
+      memcpy(data, event.buffer, event.size);
     }
   }
   return 0;
@@ -79,6 +94,8 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
 void JackApp::add_ports() {
   audio_input_ports.push_back(jack_port_register(client, "input", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0));
   audio_output_ports.push_back(jack_port_register(client, "output", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0));
+  midi_input_ports.push_back(jack_port_register(client, "midi_input", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput, 0));
+  midi_output_ports.push_back(jack_port_register(client, "midi_output", JACK_DEFAULT_MIDI_TYPE, JackPortIsOutput, 0));
 }
 
 void JackApp::connect_ports() {
@@ -114,11 +131,7 @@ void JackApp::connect_ports() {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc < 2) {
-    std::cerr << "usage: " << argv[0] << " <client_name>" << std::endl;
-    return 1;
-  }
-  JackApp my_app(argv[1]);
+  JackApp my_app;
   my_app.activate();
   my_app.run();
   return 0;

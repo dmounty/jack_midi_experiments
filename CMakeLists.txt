@@ -5,11 +5,11 @@ project (Jack)
 find_package(PkgConfig REQUIRED)
 pkg_search_module(JACK REQUIRED jack)
 
-add_executable(jack_test jack_test.cc)
+add_executable(jack_echo jack_echo.cc)
 # add the executable
-target_link_libraries(jack_test ${JACK_LIBRARIES})
-target_include_directories(jack_test PUBLIC ${JACK_INCLUDE_DIRS})
-target_compile_options(jack_test PUBLIC ${JACK_CFLAGS_OTHER})
+target_link_libraries(jack_echo ${JACK_LIBRARIES})
+target_include_directories(jack_echo PUBLIC ${JACK_INCLUDE_DIRS})
+target_compile_options(jack_echo PUBLIC ${JACK_CFLAGS_OTHER})
 
 add_executable(jack_midi_stripe jack_midi_stripe.cc)
 # add the executable
