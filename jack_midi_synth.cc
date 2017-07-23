@@ -7,6 +7,8 @@
 #include <list>
 #include <vector>
 #include <cmath>
+#include <random>
+#include <utility>
 
 #include <jack/jack.h>
 #include <jack/midiport.h>
@@ -16,17 +18,25 @@ class Oscillator {
   protected:
     float phase;
     float offset;
+    float mod;
   public:
     Oscillator(float init_phase=6.2831853) : phase(init_phase), offset(0.0) {}
     virtual float getAmplitude(float) = 0;
+    virtual void setMod(float new_mod) { mod = new_mod; }
 };
 
 
-class Sine : public Oscillator {
-  private:
+class PitchedOscillator : public Oscillator {
+  protected:
     float tuning;
   public:
-    Sine(float tune=0.0) : Oscillator(), tuning(pow(2.0, tune)) {}
+    PitchedOscillator(float tune) : Oscillator(), tuning(pow(2.0, tune)) {}
+};
+
+
+class Sine : public PitchedOscillator {
+  public:
+    Sine(float tune=0.0) : PitchedOscillator(tune) {}
     virtual float getAmplitude(float);
 };
 
@@ -34,6 +44,20 @@ float Sine::getAmplitude(float phase_step) {
   offset += phase_step * tuning * phase;
   offset = fmod(offset, phase);
   return sin(offset);
+}
+
+
+class Noise : public Oscillator {
+  private:
+    std::default_random_engine generator;
+    std::uniform_real_distribution<float> distribution;
+  public:
+    Noise() : distribution(-1.0, 1.0) {}
+    virtual float getAmplitude(float);
+};
+
+float Noise::getAmplitude(float phase_step) {
+  return distribution(generator);
 }
 
 
@@ -108,7 +132,7 @@ class Voice {
     float expression;
     float aftertouch;
     Envelope envelope;
-    std::list<Oscillator*> oscillators;
+    std::list<std::pair<Oscillator*, float>> oscillators;
     int trigger_frame;
     int sample_rate;
   public:
@@ -131,11 +155,11 @@ Voice::Voice(int note) : envelope(0.2, 0.1, 0.8, 0.5) {
   mod_wheel = 0.0;
   expression = 1.0;
   aftertouch = 0.0;
-  oscillators.push_back(new Sine);
+  oscillators.push_back(std::pair<Oscillator*, float>(new Sine, 1.0));
 }
 
 Voice::~Voice() {
-  for (auto oscillator: oscillators) delete oscillator;
+  for (auto oscillator: oscillators) delete oscillator.first;
 }
 
 void Voice::trigger_voice(float new_velocity, int first_frame) {
@@ -159,7 +183,7 @@ void Voice::render(float* out, int global_frame, int length) {
       int frames_since_trigger = frame + global_frame - trigger_frame;
       float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
       float weight = expression * velocity * envelope.getWeight(time_since_trigger);
-      out[frame] += weight * oscillator->getAmplitude(freq);
+      out[frame] += weight * oscillator.second * oscillator.first->getAmplitude(freq);
     }
   }
 }
