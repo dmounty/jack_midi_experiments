@@ -11,12 +11,68 @@
 #include <jack/jack.h>
 #include <jack/midiport.h>
 
-struct Envelope {
-  float attack;
-  float decay;
-  float sustain;
-  float release;
+class Envelope {
+  private:
+    float attack;
+    float decay;
+    float sustain;
+    float release;
+    float delay;
+    float up_time;
+    float up_weight;
+    bool down;
+    bool sounding;
+    bool pedal;
+  public:
+    Envelope(float, float, float, float, float);
+    void pushDown() { down = true; sounding = true; }
+    void liftUp() { down = false; }
+    bool isSounding() { return sounding; }
+    void setPedal(bool this_pedal) { pedal=this_pedal; }
+    float getWeight(float);
 };
+
+Envelope::Envelope(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) {
+  attack = init_attack;
+  decay = init_decay;
+  sustain = init_sustain;
+  release = init_release;
+  delay = init_delay;
+  down = false;
+  sounding = false;
+  pedal = false;
+  up_time = 0.0;
+  up_weight = 0.0;
+}
+
+float Envelope::getWeight(float time) {
+  float weight = 0.0;
+  if (sounding) {
+    if        (down && time < delay) {
+      weight = 0.0;
+      up_time = time;
+      up_weight = weight;
+    } else if (down && time < delay + attack) {
+      weight = (time - delay)/attack;
+      up_time = time;
+      up_weight = weight;
+    } else if (down && time < delay + attack + decay) {
+      weight = 1.0 - (1.0 - sustain) * (time - (delay + attack)) / decay;
+      up_time = time;
+      up_weight = weight;
+    } else if (down || pedal) {
+      weight = sustain;
+      up_time = time;
+      up_weight = weight;
+    } else {
+      weight = up_weight +(-up_weight)*(time - up_time) / release;
+      if (weight <= 0.0) sounding = false;
+    }
+  }
+  return weight;
+}
+
+
 
 class Voice {
   private:
@@ -27,23 +83,13 @@ class Voice {
     float expression;
     float aftertouch;
     Envelope envelope;
-    float release_weight;
-    bool sustain;
     int trigger_frame;
-    float release_time;
     int sample_rate;
-    bool sounding;
-    bool down;
   public:
-    Voice(int note) : pitch(freq(note)), sounding(false), trigger_frame(0), release_time(0.0), velocity(0.0), bend(0.0), mod_wheel(0.0), expression(1.0), aftertouch(0.0), sustain(false), release_weight(0.0) {
-      envelope.attack = 0.2;
-      envelope.decay = 0.1;
-      envelope.sustain = 0.8;
-      envelope.release = 0.5;
-    }
-    bool isSounding() { return sounding; }
+    Voice(int note) : pitch(freq(note)), trigger_frame(0), velocity(0.0), bend(0.0), mod_wheel(0.0), expression(1.0), aftertouch(0.0), envelope(0.2, 0.1, 0.8, 0.5) { }
+    bool isSounding() { return envelope.isSounding(); }
     void trigger_voice(float, int);
-    void release_voice() { down = false; }
+    void release_voice() { envelope.liftUp(); }
     void update(float, float, float, float, float);
     void render(float*, int, int);
     float freq(int note) { return pow(2.0f, ((note - 69.0) / 12.0)) * 440.0; }
@@ -53,8 +99,7 @@ class Voice {
 void Voice::trigger_voice(float new_velocity, int first_frame) {
   velocity = new_velocity;
   trigger_frame = first_frame;
-  down = true;
-  sounding = true;
+  envelope.pushDown();
 }
 
 void Voice::update(float new_bend, float new_mod_wheel, float new_expression, float new_aftertouch, float new_sustain) {
@@ -62,7 +107,7 @@ void Voice::update(float new_bend, float new_mod_wheel, float new_expression, fl
   mod_wheel = new_mod_wheel;
   expression = new_expression;
   aftertouch = new_aftertouch;
-  sustain = new_sustain > 0.5;
+  envelope.setPedal(new_sustain > 0.5);
 }
 
 void Voice::render(float* out, int global_frame, int length) {
@@ -70,29 +115,8 @@ void Voice::render(float* out, int global_frame, int length) {
   for (int frame=0; frame < length; ++frame) {
     int frames_since_trigger = frame + global_frame - trigger_frame;
     float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
-    float weight = 0.0;
-    if (sounding) {
-      if (down && time_since_trigger < envelope.attack) {
-        weight = (velocity - 0) * (time_since_trigger / envelope.attack);
-        release_weight = weight;
-        release_time = time_since_trigger;
-      } else if (down && time_since_trigger < envelope.attack + envelope.decay) {
-        weight = velocity + (velocity * envelope.sustain - velocity) * ((time_since_trigger - envelope.attack) / envelope.decay);
-        release_weight = weight;
-        release_time = time_since_trigger;
-      } else if (down || sustain) {
-        weight = velocity * envelope.sustain + aftertouch;
-        release_weight = weight;
-        release_time = time_since_trigger;
-      } else {
-        weight = release_weight + (0 - release_weight) * (time_since_trigger - release_time) / envelope.release;
-        if (weight <= 0) {
-          sounding = false;
-          weight = 0;
-        }
-      }
-      out[frame] += expression * weight * sin(frames_since_trigger * freq * 6.2831853);
-    }
+    float weight = expression * velocity * envelope.getWeight(time_since_trigger);
+    out[frame] += weight * sin(frames_since_trigger * freq * 6.2831853);
   }
 }
 
