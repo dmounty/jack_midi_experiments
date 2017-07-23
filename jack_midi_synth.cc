@@ -11,6 +11,21 @@
 #include <jack/jack.h>
 #include <jack/midiport.h>
 
+class Oscillator {
+  private:
+    float phase;
+    float offset;
+  public:
+    Oscillator(float init_phase=6.2831853) : phase(init_phase), offset(0.0) {}
+    float getAmplitude(float);
+};
+
+float Oscillator::getAmplitude(float phase_step) {
+  offset += phase_step * phase;
+  offset = fmod(offset, phase);
+  return sin(offset);
+};
+
 class Envelope {
   private:
     float attack;
@@ -83,6 +98,7 @@ class Voice {
     float expression;
     float aftertouch;
     Envelope envelope;
+    Oscillator oscillator;
     int trigger_frame;
     int sample_rate;
   public:
@@ -111,12 +127,12 @@ void Voice::update(float new_bend, float new_mod_wheel, float new_expression, fl
 }
 
 void Voice::render(float* out, int global_frame, int length) {
-  float freq = pitch / sample_rate;
+  float freq = pow(2.0, bend) * pitch / sample_rate;
   for (int frame=0; frame < length; ++frame) {
     int frames_since_trigger = frame + global_frame - trigger_frame;
     float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
     float weight = expression * velocity * envelope.getWeight(time_since_trigger);
-    out[frame] += weight * sin(frames_since_trigger * freq * 6.2831853);
+    out[frame] += weight * oscillator.getAmplitude(freq);
   }
 }
 
@@ -221,6 +237,7 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
       } else if (operation == 13) {
         aftertouch = event.buffer[1] / 127.0;
       } else if (operation == 14) {
+        bend = *reinterpret_cast<short*>(event.buffer + 1) / 16384.0 - 1.0;
       }
     }
   }
@@ -242,10 +259,6 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
   global_frame += nframes;
   return 0;
 }
-
-        //elif operation == 14:
-        //    (_, value) = struct.unpack('<BH', indata)
-        //    bend = (value - 16384.0) / 16384.0
 
 void JackApp::add_ports() {
   midi_input_ports.push_back(jack_port_register(client, "midi_input", JACK_DEFAULT_MIDI_TYPE, JackPortIsInput, 0));
