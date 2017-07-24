@@ -20,6 +20,13 @@ float Pulse::getAmplitude(float phase_step) {
 }
 
 
+float Triangle::getAmplitude(float phase_step) {
+  offset += phase_step * tuning * phase;
+  offset = fmod(offset, phase);
+  return offset < phase/2.0 ? (4.0 * offset / phase -1.0) : (3.0 - (4.0 * offset / phase));
+}
+
+
 float Noise::getAmplitude(float phase_step) {
   return distribution(generator);
 }

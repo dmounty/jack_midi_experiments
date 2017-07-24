@@ -17,7 +17,7 @@ Voice::Voice(int note) {
   sustain = 0.0;
   envelope = new LADSR(0.2, 0.1, 0.8, 0.5);
   osc_env_mixes.push_back(OscEnvMix(new Pulse(-2.0), new LAD(0.05, 0.5), 0.4)); // Sub
-  osc_env_mixes.push_back(OscEnvMix(new Sine(0.0), new LADSR(0.1, 0.2, 0.8, 0.5), 0.6)); // Main
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0), new LADSR(0.1, 0.2, 0.8, 0.5), 0.6)); // Main
   osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0), new LADSR(0.1, 0.2, 0.7, 0.5), 0.5)); // Fifth
   osc_env_mixes.push_back(OscEnvMix(new Sine(1.0), new LADSR(0.0, 0.3, 0.6, 0.5), 0.4)); // Octave
   osc_env_mixes.push_back(OscEnvMix(new Noise(), new LAD(0.1, 1.0), 0.01)); // Noise

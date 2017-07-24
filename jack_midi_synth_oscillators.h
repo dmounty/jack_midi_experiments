@@ -39,6 +39,13 @@ class Pulse : public PitchedOscillator {
 };
 
 
+class Triangle : public PitchedOscillator {
+  public:
+    Triangle(float tune=0.0) : PitchedOscillator(tune) {}
+    virtual float getAmplitude(float);
+};
+
+
 class Noise : public Oscillator {
   private:
     std::default_random_engine generator;
