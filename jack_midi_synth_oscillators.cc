@@ -27,6 +27,20 @@ float Triangle::getAmplitude(float phase_step) {
 }
 
 
+float Saw::getAmplitude(float phase_step) {
+  offset += phase_step * tuning * phase;
+  offset = fmod(offset, phase);
+  return (2.0 * offset/phase) - 1.0;
+}
+
+
+float ReverseSaw::getAmplitude(float phase_step) {
+  offset += phase_step * tuning * phase;
+  offset = fmod(offset, phase);
+  return 1.0 - (2.0 * offset/phase);
+}
+
+
 float Noise::getAmplitude(float phase_step) {
   return distribution(generator);
 }

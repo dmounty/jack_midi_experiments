@@ -46,6 +46,20 @@ class Triangle : public PitchedOscillator {
 };
 
 
+class Saw : public PitchedOscillator {
+  public:
+    Saw(float tune=0.0) : PitchedOscillator(tune) {}
+    virtual float getAmplitude(float);
+};
+
+
+class ReverseSaw : public PitchedOscillator {
+  public:
+    ReverseSaw(float tune=0.0) : PitchedOscillator(tune) {}
+    virtual float getAmplitude(float);
+};
+
+
 class Noise : public Oscillator {
   private:
     std::default_random_engine generator;
