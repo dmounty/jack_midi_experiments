@@ -165,6 +165,84 @@ struct OscEnvMix {
   float mix;
 };
 
+class Filter {
+  public:
+    virtual float process(float) = 0;
+    virtual void setParameter(int, float) = 0;
+};
+
+class Pass : public Filter {
+  public:
+    enum FilterMode {
+      FILTER_MODE_LOWPASS = 0,
+      FILTER_MODE_HIGHPASS,
+      FILTER_MODE_BANDPASS,
+      kNumFilterModes
+    };
+    enum Parameters {
+      PARAMETER_CUTOFF = 0,
+      PARAMETER_RESONANCE,
+      kNumParameters
+    };
+  private:
+    double cutoff;
+    double resonance;
+    FilterMode mode;
+    double feedbackAmount;
+    inline void calculateFeedbackAmount() { feedbackAmount = resonance + resonance/(1.0 - cutoff); }
+    std::vector<float> buf;
+  public:
+    Pass(FilterMode, int);
+    float process(float);
+    void setCutoff(float new_cutoff) { cutoff = new_cutoff; calculateFeedbackAmount(); }
+    void setResonance(float new_resonance) { resonance = new_resonance; calculateFeedbackAmount(); }
+    void setParameter(int, float);
+    void setFilterMode(FilterMode);
+};
+
+Pass::Pass(FilterMode filter=FILTER_MODE_LOWPASS, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0)
+{
+  setFilterMode(filter);
+  setCutoff(0.99);
+  setResonance(0.0);
+  calculateFeedbackAmount();
+}
+
+void Pass::setParameter(int parameter, float value) {
+  if (value < 0.01) value = 0.01;
+  if (value > 0.99) value = 0.99;
+  switch (parameter) {
+    case PARAMETER_CUTOFF:
+      setCutoff(value);
+      break;
+    case PARAMETER_RESONANCE:
+      setResonance(value);
+      break;
+  }
+}
+
+void Pass::setFilterMode(Pass::FilterMode new_mode) {
+  if (new_mode >= 0 && new_mode < kNumFilterModes) mode = new_mode;
+}
+
+float Pass::process(float value) {
+  float new_value = value;
+  buf[0] += cutoff * (value - buf[0] + feedbackAmount * (buf[0] - buf[1]));
+  for (int i=1; i < buf.size(); ++i) buf[i] += cutoff * (buf[i-1] - buf[i]);
+  switch (mode) {
+    case FILTER_MODE_LOWPASS:
+      new_value = buf[buf.size()-1];
+      break;
+    case FILTER_MODE_HIGHPASS:
+      new_value = value - buf[buf.size()-1];
+      break;
+    case FILTER_MODE_BANDPASS:
+      new_value = buf[0] - buf[buf.size()-1];
+      break;
+  }
+  return new_value;
+}
+
 class Voice {
   private:
     float pitch;
@@ -172,7 +250,9 @@ class Voice {
     float bend;
     float mod_wheel;
     float expression;
+    float sustain;
     float aftertouch;
+    std::list<Filter*> filters;
     Envelope* envelope;
     std::list<OscEnvMix> osc_env_mixes;
     int trigger_frame;
@@ -197,19 +277,23 @@ Voice::Voice(int note) {
   mod_wheel = 0.0;
   expression = 1.0;
   aftertouch = 0.0;
+  sustain = 0.0;
   envelope = new LADSR(0.2, 0.1, 0.8, 0.5);
   osc_env_mixes.push_back(OscEnvMix(new Sine(-2.0), new LAD(0.05, 0.5), 0.7)); // Sub
   osc_env_mixes.push_back(OscEnvMix(new Sine(0.0), new LADSR(0.1, 0.2, 0.8, 0.5), 0.6)); // Main
   osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0), new LADSR(0.1, 0.2, 0.7, 0.5), 0.5)); // Fifth
   osc_env_mixes.push_back(OscEnvMix(new Sine(1.0), new LADSR(0.0, 0.3, 0.6, 0.5), 0.4)); // Octave
   osc_env_mixes.push_back(OscEnvMix(new Noise(), new LAD(0.1, 1.0), 0.01)); // Sub
+  filters.push_back(new Pass);
 }
 
 Voice::~Voice() {
+  delete envelope;
   for (auto osc_env_mix: osc_env_mixes)  {
     delete osc_env_mix.oscillator;
     delete osc_env_mix.envelope;
   }
+  for (auto filter: filters) delete filter;
 }
 
 bool Voice::isSounding() {
@@ -236,23 +320,40 @@ void Voice::releaseVoice() {
 
 void Voice::update(float new_bend, float new_mod_wheel, float new_expression, float new_aftertouch, float new_sustain) {
   bend = new_bend;
-  mod_wheel = new_mod_wheel;
   expression = new_expression;
   aftertouch = new_aftertouch;
-  bool pedal = new_sustain > 0.5;
-  envelope->setPedal(pedal);
-  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
+  if (new_sustain != sustain) {
+    sustain = new_sustain;
+    bool pedal = sustain > 0.5;
+    envelope->setPedal(pedal);
+    for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
+  }
+  if (new_mod_wheel != mod_wheel) {
+    mod_wheel = new_mod_wheel;
+    for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
+    for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
+  }
 }
 
 void Voice::render(float* out, int global_frame, int length) {
   float freq = pow(2.0, bend) * pitch / sample_rate;
+  float voice_channel[length];
+  memset(voice_channel, 0, sizeof(voice_channel));
   for (auto osc_env_mix: osc_env_mixes) {
     for (int frame=0; frame < length; ++frame) {
       int frames_since_trigger = frame + global_frame - trigger_frame;
       float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
       float voice_weight = expression * velocity * envelope->getWeight(time_since_trigger);
-      out[frame] += voice_weight * osc_env_mix.mix * osc_env_mix.envelope->getWeight(time_since_trigger) * osc_env_mix.oscillator->getAmplitude(freq);
+      voice_channel[frame] += voice_weight * osc_env_mix.mix * osc_env_mix.envelope->getWeight(time_since_trigger) * osc_env_mix.oscillator->getAmplitude(freq);
     }
+  }
+  for (auto filter: filters) {
+    for (int frame=0; frame < length; ++frame) {
+      voice_channel[frame] = filter->process(voice_channel[frame]);
+    }
+  }
+  for (int frame=0; frame < length; ++frame) {
+    out[frame] += voice_channel[frame];
   }
 }
 
