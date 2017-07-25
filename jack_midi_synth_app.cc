@@ -67,7 +67,7 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
         channel = event.buffer[0] & 0xF;
       }
       if (operation == 9) {
-        voices[event.buffer[1]]->triggerVoice(event.buffer[1] / 127.0, global_frame);
+        voices[event.buffer[1]]->triggerVoice(event.buffer[2] / 127.0, global_frame);
       } else if (operation == 8) {
         voices[event.buffer[1]]->releaseVoice();
       } else if (operation == 11) {
@@ -113,18 +113,14 @@ void JackApp::add_ports() {
 void JackApp::connect_ports() {
   const char **ports;
 
-  //Get an array of all physical output ports
   if((ports = jack_get_ports(client, NULL, JACK_DEFAULT_AUDIO_TYPE, JackPortIsPhysical|JackPortIsTerminal|JackPortIsInput)) == NULL) {
     std::cerr << "Cannot find any physical playback ports" << std::endl;
   }
 
-  // Connect our output port to all physical output ports (NULL terminated array)
-  int i=0;
-  while(ports[i] != NULL){
+  for (int i=0;ports[i];++i) {
     if(jack_connect(client, jack_port_name(audio_output_ports.front()), ports[i])) {
       std::cerr << "cannot connect output ports" << std::endl;
     }
-    i++;
   }
 
   jack_free(ports);

@@ -33,8 +33,8 @@ class Pass : public Filter {
   public:
     Pass(FilterMode filter=FILTER_MODE_LOWPASS, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0) {
       setFilterMode(filter);
-      setCutoff(0.99);
-      setResonance(0.0);
+      setCutoff(0.6);
+      setResonance(0.4);
       calculateFeedbackAmount();
     }
     float process(float);

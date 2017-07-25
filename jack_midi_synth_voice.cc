@@ -5,6 +5,7 @@
 
 #include <cstring>
 
+
 Voice::Voice(int note) {
   pitch = freq(note);
   trigger_frame = 0;
@@ -14,13 +15,13 @@ Voice::Voice(int note) {
   expression = 1.0;
   aftertouch = 0.0;
   sustain = 0.0;
-  envelope = new LADSR(0.2, 0.1, 0.8, 0.5);
-  osc_env_mixes.push_back(OscEnvMix(new Pulse(-2.0), new LAD(0.05, 0.5), 0.4)); // Sub 2
-  osc_env_mixes.push_back(OscEnvMix(new Sine(-1.0), new LAD(0.2, 1.0), 0.5)); // Sub 1
-  osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0), new LADSR(0.1, 0.2, 0.8, 0.5), 0.6)); // Main
-  osc_env_mixes.push_back(OscEnvMix(new Saw(7.0/12.0), new LADSR(0.1, 0.2, 0.7, 0.5), 0.5)); // Fifth
-  osc_env_mixes.push_back(OscEnvMix(new ReverseSaw(1.0), new LADSR(0.0, 0.3, 0.6, 0.5), 0.4)); // Octave
-  osc_env_mixes.push_back(OscEnvMix(new Noise(), new LAD(0.1, 1.0), 0.01)); // Noise
+  envelope = new LADSR(0.05, 0.2, 0.9, 0.7);
+  osc_env_mixes.push_back(OscEnvMix(new Pulse(-2.0),     new LADSR(0.25, 0.2,  0.7, 0.6), 0.2)); // Sub 2
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0),  new LADSR(0.2,  0.15, 0.8, 0.5), 0.4)); // Sub 1
+  osc_env_mixes.push_back(OscEnvMix(new Sine(0.0),       new LADSR(0.15, 0.1,  0.9, 0.4), 0.7)); // Main
+  osc_env_mixes.push_back(OscEnvMix(new Saw(7.0/12.0),   new LADSR(0.1,  0.15, 0.8, 0.3), 0.3)); // Fifth
+  osc_env_mixes.push_back(OscEnvMix(new ReverseSaw(1.0), new LADSR(0.05, 0.2,  0.7, 0.2), 0.1)); // Octave
+  osc_env_mixes.push_back(OscEnvMix(new Noise(),         new LADSR(0.0,  0.25, 0.6, 0.1), 0.01)); // Noise
   filters.push_back(new Pass);
 }
 
