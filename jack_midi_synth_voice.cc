@@ -2,6 +2,7 @@
 #include "jack_midi_synth_envelopes.h"
 #include "jack_midi_synth_oscillators.h"
 #include "jack_midi_synth_filters.h"
+#include "jack_midi_synth_events.h"
 
 #include <cstring>
 
@@ -56,18 +57,18 @@ void Voice::releaseVoice() {
   for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->liftUp();
 }
 
-void Voice::update(float new_bend, float new_mod_wheel, float new_expression, float new_aftertouch, float new_sustain) {
-  bend = new_bend;
-  expression = new_expression;
-  aftertouch = new_aftertouch;
-  if (new_sustain != sustain) {
-    sustain = new_sustain;
+void Voice::update(const FloatEvent& bend_event, const FloatEvent& mod_wheel_event, const FloatEvent& expression_event, const FloatEvent& aftertouch_event, const FloatEvent& sustain_event) {
+  bend = bend_event.event;
+  expression = expression_event.event;
+  aftertouch = aftertouch_event.event;
+  if (sustain_event.event != sustain) {
+    sustain = sustain_event.event;
     bool pedal = sustain > 0.5;
     envelope->setPedal(pedal);
     for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
   }
-  if (new_mod_wheel != mod_wheel) {
-    mod_wheel = new_mod_wheel;
+  if (mod_wheel_event.event != mod_wheel) {
+    mod_wheel = mod_wheel_event.event;
     for (auto osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, mod_wheel);
     //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
     //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
@@ -102,4 +103,8 @@ float Voice::freq(int note) {
 
 void Voice::setSampleRate(int rate) {
   sample_rate = rate;
+}
+
+void Voice::setBufferSize(int size) {
+  buffer_size = size;
 }
