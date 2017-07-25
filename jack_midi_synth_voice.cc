@@ -3,7 +3,6 @@
 #include "jack_midi_synth_oscillators.h"
 #include "jack_midi_synth_filters.h"
 
-#include <list>
 #include <cstring>
 
 Voice::Voice(int note) {

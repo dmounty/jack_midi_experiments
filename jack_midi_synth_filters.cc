@@ -1,7 +1,5 @@
 #include "jack_midi_synth_filters.h"
 
-#include <vector>
-
 
 void Pass::setParameter(int parameter, float value) {
   if (value < 0.01) value = 0.01;
