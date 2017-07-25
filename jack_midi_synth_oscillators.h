@@ -7,55 +7,65 @@
 
 class Oscillator {
   protected:
-    float phase;
     float offset;
-    float mod;
   public:
-    Oscillator(float init_phase=6.2831853) : phase(init_phase), offset(0.0) {}
+    Oscillator(const char* init_type) : offset(0.0), type(init_type) {}
     virtual float getAmplitude(float) = 0;
-    virtual void setMod(float);
+    virtual void setFloatParameter(int, float) {}
+    virtual void setIntParameter(int, int) {}
+    virtual void setBoolParameter(int, bool) {}
+    const char* type;
 };
 
 
 class PitchedOscillator : public Oscillator {
+  public:
+    enum Parameters {
+      PARAMETER_PULSE_CENTRE = 0,
+      kNumParameters
+    };
   protected:
     float tuning;
+    float pulse_centre;
   public:
-    PitchedOscillator(float tune) : Oscillator(), tuning(pow(2.0, tune)) {}
+    PitchedOscillator(float tune, const char* init_type) : Oscillator(init_type), pulse_centre(0.5), tuning(pow(2.0, tune)) {}
+    virtual float advanceOffset(float);
+    virtual float pulseWidthModulate(float);
+    virtual void setFloatParameter(int, float);
 };
 
 
 class Sine : public PitchedOscillator {
   public:
-    Sine(float tune=0.0) : PitchedOscillator(tune) {}
+    Sine(float tune=0.0) : PitchedOscillator(tune, "Sine") {}
     virtual float getAmplitude(float);
 };
 
 
 class Pulse : public PitchedOscillator {
   public:
-    Pulse(float tune=0.0) : PitchedOscillator(tune) {}
+    Pulse(float tune=0.0) : PitchedOscillator(tune, "Pulse") {}
     virtual float getAmplitude(float);
 };
 
 
 class Triangle : public PitchedOscillator {
   public:
-    Triangle(float tune=0.0) : PitchedOscillator(tune) {}
+    Triangle(float tune=0.0) : PitchedOscillator(tune, "Triangle") {}
     virtual float getAmplitude(float);
 };
 
 
 class Saw : public PitchedOscillator {
   public:
-    Saw(float tune=0.0) : PitchedOscillator(tune) {}
+    Saw(float tune=0.0) : PitchedOscillator(tune, "Saw") {}
     virtual float getAmplitude(float);
 };
 
 
 class ReverseSaw : public PitchedOscillator {
   public:
-    ReverseSaw(float tune=0.0) : PitchedOscillator(tune) {}
+    ReverseSaw(float tune=0.0) : PitchedOscillator(tune, "ReverseSaw") {}
     virtual float getAmplitude(float);
 };
 
@@ -65,7 +75,7 @@ class Noise : public Oscillator {
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution;
   public:
-    Noise() : distribution(-1.0, 1.0) {}
+    Noise() : distribution(-1.0, 1.0), Oscillator("Noise") {}
     virtual float getAmplitude(float);
 };
 

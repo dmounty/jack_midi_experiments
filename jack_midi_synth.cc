@@ -140,7 +140,7 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
       }
     }
     for (int frame=0; frame < nframes; ++frame) {
-      out[frame] = atan(out[frame]) / 1.5707963;
+      out[frame] = tanh(out[frame]) / 1.5707963;
     }
   }
   aftertouch -= (nframes / sample_rate) * 2.0;

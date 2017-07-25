@@ -68,8 +68,9 @@ void Voice::update(float new_bend, float new_mod_wheel, float new_expression, fl
   }
   if (new_mod_wheel != mod_wheel) {
     mod_wheel = new_mod_wheel;
-    for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
-    for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
+    for (auto osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, mod_wheel);
+    //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
+    //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
   }
 }
 
