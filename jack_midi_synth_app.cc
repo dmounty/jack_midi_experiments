@@ -22,12 +22,22 @@ std::list<FloatEvent> JackApp::mod_wheel_events = {FloatEvent(0, 0.0)};
 std::list<FloatEvent> JackApp::expression_events = {FloatEvent(0, 1.0)};
 std::list<FloatEvent> JackApp::aftertouch_events = {FloatEvent(0, 0.0)};
 std::list<FloatEvent> JackApp::sustain_events = {FloatEvent(0, 0.0)};
+std::vector<float> JackApp::bend;
+std::vector<float> JackApp::mod_wheel;
+std::vector<float> JackApp::expression;
+std::vector<float> JackApp::aftertouch;
+std::vector<float> JackApp::sustain;
 
 
 JackApp::JackApp() {
   jack_set_error_function(JackApp::error);
   client = jack_client_open("Midi Synth", JackNoStartServer, NULL);
+  if (!client) {
+    std::cerr << "Unable to create Jack client" << std::endl;
+    exit(1);
+  }
   sample_rate = jack_get_sample_rate(client);
+  buffer_size = jack_get_buffer_size(client);
   jack_set_process_callback(client, JackApp::process, 0);
   jack_set_sample_rate_callback(client, JackApp::srate, 0);
   jack_set_buffer_size_callback(client, JackApp::bsize, 0);
@@ -62,6 +72,30 @@ void JackApp::cycleEventList(std::list<FloatEvent>& event_list) {
   last_event.frame -= buffer_size;
   event_list.clear();
   event_list.push_back(last_event);
+}
+
+void JackApp::interpolateEvents(const std::list<FloatEvent>& event_list, std::vector<float>& values) {
+  if (event_list.size() == 1) {
+    for (auto& value: values) value = event_list.back().value;
+  } else {
+    FloatEvent previous_event = event_list.front();
+    bool first = true;
+    int offset = 0;
+    for (const auto& event: event_list) {
+      if (first) { first = false; continue; }
+      for (int i=offset; i < values.size() ; ++i) {
+        if (previous_event.frame < i && i <= event.frame) {
+          values[i] = previous_event.value + (i - previous_event.frame) * (event.value - previous_event.value) / (event.frame - previous_event.frame);
+        } else {
+          previous_event = event;
+          values[i] = event.value;
+          offset = i;
+          break;
+        }
+      }
+    }
+    for (int i=offset; i < values.size(); ++i) values[i] = previous_event.value;
+  }
 }
 
 int JackApp::process(jack_nframes_t nframes, void *arg) {
@@ -102,12 +136,17 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
       }
     }
   }
+  interpolateEvents(bend_events, bend);
+  interpolateEvents(mod_wheel_events, mod_wheel);
+  interpolateEvents(expression_events, expression);
+  interpolateEvents(aftertouch_events, aftertouch);
+  interpolateEvents(sustain_events, sustain);
   if (audio_output_ports.size() > 0) {
     auto out_port = audio_output_ports.front();
     auto out = reinterpret_cast<float*>(jack_port_get_buffer(out_port, nframes));
     memset(out, 0, nframes * 4);
     for (int note_num=0; note_num < voices.size() ; ++note_num) {
-      voices[note_num]->update(bend_events.back(), mod_wheel_events.back(), expression_events.back(), aftertouch_events.back(), sustain_events.back());
+      voices[note_num]->update(&bend, &mod_wheel, &expression, &aftertouch, &sustain);
       if (voices[note_num]->isSounding()) voices[note_num]->render(out, global_frame, nframes);
     }
     for (int frame=0; frame < nframes; ++frame) out[frame] = tanh(out[frame]) / 1.5707963;
@@ -128,7 +167,7 @@ void JackApp::connect_ports() {
     std::cerr << "Cannot find any physical playback ports" << std::endl;
   }
 
-  for (int i=0;ports[i];++i) {
+  for (int i=0; ports[i]; ++i) {
     if(jack_connect(client, jack_port_name(audio_output_ports.front()), ports[i])) {
       std::cerr << "cannot connect output ports" << std::endl;
     }
@@ -149,6 +188,11 @@ int JackApp::srate(jack_nframes_t nframes, void *arg) {
 
 int JackApp::bsize(jack_nframes_t nframes, void *arg) {
   buffer_size = nframes;
+  bend.resize(nframes);
+  mod_wheel.resize(nframes);
+  expression.resize(nframes);
+  aftertouch.resize(nframes);
+  sustain.resize(nframes);
   for (auto voice: voices) voice->setBufferSize(buffer_size);
   return 0;
 }

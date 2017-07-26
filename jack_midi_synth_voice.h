@@ -8,6 +8,7 @@ class Filter;
 struct FloatEvent;
 
 #include <list>
+#include <vector>
 
 #include "jack_midi_synth_envelopes.h"
 
@@ -22,11 +23,11 @@ class Voice {
   private:
     float pitch;
     float velocity;
-    float bend;
-    float mod_wheel;
-    float expression;
-    float sustain;
-    float aftertouch;
+    const std::vector<float>* bend;
+    const std::vector<float>* mod_wheel;
+    const std::vector<float>* expression;
+    const std::vector<float>* sustain;
+    const std::vector<float>* aftertouch;
     std::list<Filter*> filters;
     Envelope* envelope;
     std::list<OscEnvMix> osc_env_mixes;
@@ -39,7 +40,7 @@ class Voice {
     bool isSounding();
     void triggerVoice(float, int);
     void releaseVoice();
-    void update(const FloatEvent&, const FloatEvent&, const FloatEvent&, const FloatEvent&, const FloatEvent&);
+    void update(const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*);
     void render(float*, int, int);
     float freq(int);
     void setSampleRate(int);

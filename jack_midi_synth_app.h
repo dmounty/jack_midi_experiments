@@ -23,6 +23,11 @@ class JackApp {
     static std::list<FloatEvent> expression_events;
     static std::list<FloatEvent> aftertouch_events;
     static std::list<FloatEvent> sustain_events;
+    static std::vector<float> bend;
+    static std::vector<float> mod_wheel;
+    static std::vector<float> expression;
+    static std::vector<float> aftertouch;
+    static std::vector<float> sustain;
   public:
     JackApp();
     ~JackApp();
@@ -37,6 +42,7 @@ class JackApp {
     static void jack_shutdown(void*);
     static int process(jack_nframes_t, void*);
     static void cycleEventList(std::list<FloatEvent>&);
+    static void interpolateEvents(const std::list<FloatEvent>&, std::vector<float>&);
 };
 
 #endif  // JACK_MIDI_SYNTH_APP_H

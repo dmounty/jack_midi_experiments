@@ -11,11 +11,6 @@ Voice::Voice(int note) {
   pitch = freq(note);
   trigger_frame = 0;
   velocity = 0.0;
-  bend = 0.0;
-  mod_wheel = 0.0;
-  expression = 1.0;
-  aftertouch = 0.0;
-  sustain = 0.0;
   envelope = new LADSR(0.05, 0.2, 0.9, 0.7);
   osc_env_mixes.push_back(OscEnvMix(new Pulse(-2.0),     new LADSR(0.25, 0.2,  0.7, 0.6), 0.2)); // Sub 2
   osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0),  new LADSR(0.2,  0.15, 0.8, 0.5), 0.4)); // Sub 1
@@ -28,18 +23,18 @@ Voice::Voice(int note) {
 
 Voice::~Voice() {
   delete envelope;
-  for (auto osc_env_mix: osc_env_mixes)  {
+  for (auto& osc_env_mix: osc_env_mixes)  {
     delete osc_env_mix.oscillator;
     delete osc_env_mix.envelope;
   }
-  for (auto filter: filters) delete filter;
+  for (auto& filter: filters) delete filter;
 }
 
 bool Voice::isSounding() {
   if (envelope->isSounding()) {
     return true;
   }
-  for (auto osc_env_mix: osc_env_mixes) {
+  for (auto& osc_env_mix: osc_env_mixes) {
     if (osc_env_mix.envelope->isSounding()) return true;
   }
   return false;
@@ -49,45 +44,41 @@ void Voice::triggerVoice(float new_velocity, int first_frame) {
   velocity = new_velocity;
   trigger_frame = first_frame;
   envelope->pushDown();
-  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->pushDown();
+  for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->pushDown();
 }
 
 void Voice::releaseVoice() {
   envelope->liftUp();
-  for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->liftUp();
+  for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->liftUp();
 }
 
-void Voice::update(const FloatEvent& bend_event, const FloatEvent& mod_wheel_event, const FloatEvent& expression_event, const FloatEvent& aftertouch_event, const FloatEvent& sustain_event) {
-  bend = bend_event.event;
-  expression = expression_event.event;
-  aftertouch = aftertouch_event.event;
-  if (sustain_event.event != sustain) {
-    sustain = sustain_event.event;
-    bool pedal = sustain > 0.5;
-    envelope->setPedal(pedal);
-    for (auto osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
-  }
-  if (mod_wheel_event.event != mod_wheel) {
-    mod_wheel = mod_wheel_event.event;
-    for (auto osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, mod_wheel);
-    //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
-    //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
-  }
+void Voice::update(const std::vector<float>* new_bend, const std::vector<float>* new_mod_wheel, const std::vector<float>* new_expression, const std::vector<float>* new_aftertouch, const std::vector<float>* new_sustain) {
+  bend = new_bend;
+  mod_wheel = new_mod_wheel;
+  expression = new_expression;
+  aftertouch = new_aftertouch;
+  sustain = new_sustain;
+  bool pedal = (*sustain)[sustain->size()/2];
+  envelope->setPedal(pedal);
+  for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
+  for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, 0.5 + (*mod_wheel)[mod_wheel->size()/2]*0.5);
+  //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
+  //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
 }
 
 void Voice::render(float* out, int global_frame, int length) {
-  float freq = pow(2.0, bend) * pitch / sample_rate;
+  float freq = pow(2.0, (*bend)[bend->size()/2]) * pitch / sample_rate;
   float voice_channel[length];
   memset(voice_channel, 0, sizeof(voice_channel));
-  for (auto osc_env_mix: osc_env_mixes) {
+  for (auto& osc_env_mix: osc_env_mixes) {
     for (int frame=0; frame < length; ++frame) {
       int frames_since_trigger = frame + global_frame - trigger_frame;
       float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
-      float voice_weight = expression * velocity * envelope->getWeight(time_since_trigger);
-      voice_channel[frame] += voice_weight * osc_env_mix.mix * osc_env_mix.envelope->getWeight(time_since_trigger) * osc_env_mix.oscillator->getAmplitude(freq);
+      float voice_weight = (*expression)[frame] * velocity * envelope->getWeight(time_since_trigger);
+      voice_channel[frame] += voice_weight * (osc_env_mix.mix * (1.0 + (*aftertouch)[frame])) * osc_env_mix.envelope->getWeight(time_since_trigger) * osc_env_mix.oscillator->getAmplitude(freq);
     }
   }
-  for (auto filter: filters) {
+  for (auto& filter: filters) {
     for (int frame=0; frame < length; ++frame) {
       voice_channel[frame] = filter->process(voice_channel[frame]);
     }
