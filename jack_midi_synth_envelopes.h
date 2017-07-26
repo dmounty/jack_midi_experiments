@@ -14,7 +14,7 @@ class Envelope {
     float up_weight;
   public:
     Envelope(float, float, float);
-    void pushDown();
+    virtual void pushDown();
     void liftUp();
     void setPedal(bool);
     bool isSounding();
@@ -26,12 +26,14 @@ class LADSR : public Envelope {
   private:
     float sustain;
     float release;
+    bool in_release;
   public:
-    LADSR(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay) {
+    LADSR(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay), in_release(false) {
       sustain = init_sustain;
       release = init_release;
     }
     float getWeight(float);
+    virtual void pushDown();
 };
 
 

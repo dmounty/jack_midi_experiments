@@ -5,19 +5,20 @@
 #include "jack_midi_synth_events.h"
 
 #include <cstring>
+#include <cmath>
 
 
 Voice::Voice(int note) {
   pitch = freq(note);
   trigger_frame = 0;
   velocity = 0.0;
-  envelope = new LADSR(0.05, 0.2, 0.9, 0.7);
-  osc_env_mixes.push_back(OscEnvMix(new Pulse(-2.0),     new LADSR(0.25, 0.2,  0.7, 0.6), 0.2)); // Sub 2
-  osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0),  new LADSR(0.2,  0.15, 0.8, 0.5), 0.4)); // Sub 1
-  osc_env_mixes.push_back(OscEnvMix(new Sine(0.0),       new LADSR(0.15, 0.1,  0.9, 0.4), 0.7)); // Main
-  osc_env_mixes.push_back(OscEnvMix(new Saw(7.0/12.0),   new LADSR(0.1,  0.15, 0.8, 0.3), 0.3)); // Fifth
-  osc_env_mixes.push_back(OscEnvMix(new ReverseSaw(1.0), new LADSR(0.05, 0.2,  0.7, 0.2), 0.1)); // Octave
-  osc_env_mixes.push_back(OscEnvMix(new Noise(),         new LADSR(0.0,  0.25, 0.6, 0.1), 0.01)); // Noise
+  envelope = new LADSR(0.06, 0.25, 0.9, 1.5, 0.01);
+  osc_env_mixes.push_back(OscEnvMix(new Sine(2.0),      new LADSR(0.06, 0.15, 0.8,  1.0, 0.015), 0.2));  // Sub
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0), new LADSR(0.06, 0.2,  0.65, 0.9, 0.015), 0.1));  // Sub fifth
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0),  new LADSR(0.05, 0.25, 0.5,  0.8, 0.02),  0.7));  // Main
+  osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0), new LADSR(0.04, 0.2,  0.7,  0.7, 0.02),  0.3));  // Fifth
+  osc_env_mixes.push_back(OscEnvMix(new Sine(1.0),      new LADSR(0.03, 0.15, 0.4,  0.6, 0.02),  0.4));  // Octave
+  osc_env_mixes.push_back(OscEnvMix(new Pulse(2.0),     new LADSR(0.02, 0.1,  0.3,  0.5, 0.02),  0.05));  // Octave 2
   filters.push_back(new Pass);
 }
 
@@ -62,8 +63,8 @@ void Voice::update(const std::vector<float>* new_bend, const std::vector<float>*
   envelope->setPedal(pedal);
   for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
   for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, 0.5 + (*mod_wheel)[mod_wheel->size()/2]*0.5);
-  //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - mod_wheel);
-  //for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, mod_wheel);
+  for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - (*aftertouch)[aftertouch->size()/2]);
+  for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, (*aftertouch)[aftertouch->size()/2]);
 }
 
 void Voice::render(float* out, int global_frame, int length) {
@@ -84,7 +85,7 @@ void Voice::render(float* out, int global_frame, int length) {
     }
   }
   for (int frame=0; frame < length; ++frame) {
-    out[frame] += voice_channel[frame];
+    out[frame] += tanh(voice_channel[frame]);
   }
 }
 

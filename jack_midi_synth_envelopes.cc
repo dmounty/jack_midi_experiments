@@ -11,7 +11,7 @@ void Envelope::liftUp() {
 }
 
 void Envelope::setPedal(bool this_pedal) {
-  pedal=this_pedal;
+  pedal = this_pedal;
 }
 
 bool Envelope::isSounding() {
@@ -46,16 +46,23 @@ float LADSR::getWeight(float time) {
       weight = 1.0 - (1.0 - sustain) * (time - (delay + attack)) / decay;
       up_time = time;
       up_weight = weight;
-    } else if (down || pedal) {
+    } else if (down || (pedal && !in_release)) {
       weight = sustain;
       up_time = time;
       up_weight = weight;
     } else {
+      in_release = true;
       weight = up_weight +(-up_weight)*(time - up_time) / release;
       if (weight <= 0.0) sounding = false;
     }
   }
   return weight;
+}
+
+
+void LADSR::pushDown() {
+  Envelope::pushDown();
+  in_release = false;
 }
 
 
