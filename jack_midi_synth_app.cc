@@ -11,25 +11,11 @@
 #include "jack_midi_synth_app.h"
 #include "jack_midi_synth_events.h"
 
-jack_nframes_t JackApp::sample_rate = 0;
-jack_nframes_t JackApp::buffer_size = 0;
-std::list<jack_port_t*> JackApp::midi_input_ports;
-std::list<jack_port_t*> JackApp::audio_output_ports;
-std::vector<Voice*> JackApp::voices;
-int JackApp::global_frame = 0;
-std::list<FloatEvent> JackApp::bend_events = {FloatEvent(0, 0.0)};
-std::list<FloatEvent> JackApp::mod_wheel_events = {FloatEvent(0, 0.0)};
-std::list<FloatEvent> JackApp::expression_events = {FloatEvent(0, 1.0)};
-std::list<FloatEvent> JackApp::aftertouch_events = {FloatEvent(0, 0.0)};
-std::list<FloatEvent> JackApp::sustain_events = {FloatEvent(0, 0.0)};
-std::vector<float> JackApp::bend;
-std::vector<float> JackApp::mod_wheel;
-std::vector<float> JackApp::expression;
-std::vector<float> JackApp::aftertouch;
-std::vector<float> JackApp::sustain;
 
 
-JackApp::JackApp() {
+#include <functional>
+
+JackApp::JackApp() : sample_rate (0), buffer_size (0), global_frame (0), bend_events ({FloatEvent(0, 0.0)}), mod_wheel_events ({FloatEvent(0, 0.0)}), expression_events ({FloatEvent(0, 1.0)}), aftertouch_events ({FloatEvent(0, 0.0)}), sustain_events ({FloatEvent(0, 0.0)}) {
   jack_set_error_function(JackApp::error);
   client = jack_client_open("Midi Synth", JackNoStartServer, NULL);
   if (!client) {
@@ -38,10 +24,10 @@ JackApp::JackApp() {
   }
   sample_rate = jack_get_sample_rate(client);
   buffer_size = jack_get_buffer_size(client);
-  jack_set_process_callback(client, JackApp::process, 0);
-  jack_set_sample_rate_callback(client, JackApp::srate, 0);
-  jack_set_buffer_size_callback(client, JackApp::bsize, 0);
-  jack_on_shutdown(client, JackApp::jack_shutdown, 0);
+  jack_set_process_callback(client, JackApp::process, this);
+  jack_set_sample_rate_callback(client, JackApp::srate, this);
+  jack_set_buffer_size_callback(client, JackApp::bsize, this);
+  jack_on_shutdown(client, JackApp::jack_shutdown, this);
   add_ports();
 }
 
@@ -99,13 +85,14 @@ void JackApp::interpolateEvents(const std::list<FloatEvent>& event_list, std::ve
 }
 
 int JackApp::process(jack_nframes_t nframes, void *arg) {
-  if (midi_input_ports.size() > 0) {
-    cycleEventList(bend_events);
-    cycleEventList(mod_wheel_events);
-    cycleEventList(expression_events);
-    cycleEventList(aftertouch_events);
-    cycleEventList(sustain_events);
-    auto in_port = midi_input_ports.front();
+  JackApp* o = reinterpret_cast<JackApp*>(arg);
+  if (o->midi_input_ports.size() > 0) {
+    o->cycleEventList(o->bend_events);
+    o->cycleEventList(o->mod_wheel_events);
+    o->cycleEventList(o->expression_events);
+    o->cycleEventList(o->aftertouch_events);
+    o->cycleEventList(o->sustain_events);
+    auto in_port = o->midi_input_ports.front();
     auto in = jack_port_get_buffer(in_port, nframes);
     for (int i=0; i < jack_midi_get_event_count(in); ++i) {
       jack_midi_event_t event;
@@ -117,41 +104,41 @@ int JackApp::process(jack_nframes_t nframes, void *arg) {
         channel = event.buffer[0] & 0xF;
       }
       if (operation == 9) {
-        voices[event.buffer[1]]->triggerVoice(event.buffer[2] / 127.0, global_frame + event.time);
+        o->voices[event.buffer[1]]->triggerVoice(event.buffer[2] / 127.0, o->global_frame + event.time);
       } else if (operation == 8) {
-        voices[event.buffer[1]]->releaseVoice();
+        o->voices[event.buffer[1]]->releaseVoice();
       } else if (operation == 11) {
         if (event.buffer[1] == 1) {
-          mod_wheel_events.push_back(FloatEvent(event.time, event.buffer[2] / 127.0));
+          o->mod_wheel_events.push_back(FloatEvent(event.time, event.buffer[2] / 127.0));
         } else if (event.buffer[1] == 11) {
-          expression_events.push_back(FloatEvent(event.time, event.buffer[2] / 127.0));
+          o->expression_events.push_back(FloatEvent(event.time, event.buffer[2] / 127.0));
         } else if (event.buffer[1] == 64) {
-          sustain_events.push_back(FloatEvent(event.time, event.buffer[2] /127));
+          o->sustain_events.push_back(FloatEvent(event.time, event.buffer[2] /127));
         }
       } else if (operation == 12) {
       } else if (operation == 13) {
-        aftertouch_events.push_back(FloatEvent(event.time, event.buffer[1] / 127.0));
+        o->aftertouch_events.push_back(FloatEvent(event.time, event.buffer[1] / 127.0));
       } else if (operation == 14) {
-        bend_events.push_back(FloatEvent(event.time, *reinterpret_cast<short*>(event.buffer + 1) / 16384.0 - 1.0));
+        o->bend_events.push_back(FloatEvent(event.time, *reinterpret_cast<short*>(event.buffer + 1) / 16384.0 - 1.0));
       }
     }
   }
-  interpolateEvents(bend_events, bend);
-  interpolateEvents(mod_wheel_events, mod_wheel);
-  interpolateEvents(expression_events, expression);
-  interpolateEvents(aftertouch_events, aftertouch);
-  interpolateEvents(sustain_events, sustain);
-  if (audio_output_ports.size() > 0) {
-    auto out_port = audio_output_ports.front();
+  o->interpolateEvents(o->bend_events, o->bend);
+  o->interpolateEvents(o->mod_wheel_events, o->mod_wheel);
+  o->interpolateEvents(o->expression_events, o->expression);
+  o->interpolateEvents(o->aftertouch_events, o->aftertouch);
+  o->interpolateEvents(o->sustain_events, o->sustain);
+  if (o->audio_output_ports.size() > 0) {
+    auto out_port = o->audio_output_ports.front();
     auto out = reinterpret_cast<float*>(jack_port_get_buffer(out_port, nframes));
     memset(out, 0, nframes * 4);
-    for (int note_num=0; note_num < voices.size() ; ++note_num) {
-      voices[note_num]->update(&bend, &mod_wheel, &expression, &aftertouch, &sustain);
-      if (voices[note_num]->isSounding()) voices[note_num]->render(out, global_frame, nframes);
+    for (int note_num=0; note_num < o->voices.size() ; ++note_num) {
+      o->voices[note_num]->update(&o->bend, &o->mod_wheel, &o->expression, &o->aftertouch, &o->sustain);
+      if (o->voices[note_num]->isSounding()) o->voices[note_num]->render(out, o->global_frame, nframes);
     }
     for (int frame=0; frame < nframes; ++frame) out[frame] = tanh(out[frame]) / 1.5707963;
   }
-  global_frame += nframes;
+  o->global_frame += nframes;
   return 0;
 }
 
@@ -181,19 +168,21 @@ void JackApp::run() {
 }
 
 int JackApp::srate(jack_nframes_t nframes, void *arg) {
-  sample_rate = nframes;
-  for (auto voice: voices) voice->setSampleRate(sample_rate);
+  JackApp* o = reinterpret_cast<JackApp*>(arg);
+  o->sample_rate = nframes;
+  for (auto voice: o->voices) voice->setSampleRate(nframes);
   return 0;
 }
 
 int JackApp::bsize(jack_nframes_t nframes, void *arg) {
-  buffer_size = nframes;
-  bend.resize(nframes);
-  mod_wheel.resize(nframes);
-  expression.resize(nframes);
-  aftertouch.resize(nframes);
-  sustain.resize(nframes);
-  for (auto voice: voices) voice->setBufferSize(buffer_size);
+  JackApp* o = reinterpret_cast<JackApp*>(arg);
+  o->buffer_size = nframes;
+  o->bend.resize(nframes);
+  o->mod_wheel.resize(nframes);
+  o->expression.resize(nframes);
+  o->aftertouch.resize(nframes);
+  o->sustain.resize(nframes);
+  for (auto voice: o->voices) voice->setBufferSize(nframes);
   return 0;
 }
 
