@@ -22,6 +22,7 @@ add_executable( jack_midi_synth
   jack_midi_synth_app.cc
   jack_midi_synth_envelopes.cc
   jack_midi_synth_filters.cc
+  jack_midi_synth_logic.cc
   jack_midi_synth_oscillators.cc
   jack_midi_synth_voice.cc
 )
