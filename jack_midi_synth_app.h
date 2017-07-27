@@ -14,7 +14,7 @@ class JackApp {
   public:
     JackApp();
     ~JackApp();
-    void run();
+    void run() const;
     static int static_srate(jack_nframes_t, void*);
     static int static_bsize(jack_nframes_t, void*);
     static void error(const char*);

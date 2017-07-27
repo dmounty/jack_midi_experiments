@@ -37,10 +37,10 @@ class Pass : public Filter {
       setResonance(0.4);
       calculateFeedbackAmount();
     }
-    float process(float);
+    float process(float) override;
     void setCutoff(float new_cutoff) { cutoff = new_cutoff; calculateFeedbackAmount(); }
     void setResonance(float new_resonance) { resonance = new_resonance; calculateFeedbackAmount(); }
-    void setParameter(int, float);
+    void setParameter(int, float) override;
     void setFilterMode(FilterMode);
 };
 

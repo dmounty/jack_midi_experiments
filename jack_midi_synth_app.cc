@@ -30,7 +30,7 @@ int JackApp::static_process(jack_nframes_t nframes, void *arg) {
   return o->process(nframes);
 }
 
-void JackApp::run() {
+void JackApp::run() const {
   for(;;) sleep(1);
 }
 

@@ -38,35 +38,35 @@ class PitchedOscillator : public Oscillator {
 class Sine : public PitchedOscillator {
   public:
     Sine(float tune=0.0) : PitchedOscillator(tune, "Sine") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 
 class Pulse : public PitchedOscillator {
   public:
     Pulse(float tune=0.0) : PitchedOscillator(tune, "Pulse") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 
 class Triangle : public PitchedOscillator {
   public:
     Triangle(float tune=0.0) : PitchedOscillator(tune, "Triangle") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 
 class Saw : public PitchedOscillator {
   public:
     Saw(float tune=0.0) : PitchedOscillator(tune, "Saw") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 
 class ReverseSaw : public PitchedOscillator {
   public:
     ReverseSaw(float tune=0.0) : PitchedOscillator(tune, "ReverseSaw") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 
@@ -76,7 +76,7 @@ class Noise : public Oscillator {
     std::uniform_real_distribution<float> distribution;
   public:
     Noise() : distribution(-1.0, 1.0), Oscillator("Noise") {}
-    virtual float getAmplitude(float);
+    virtual float getAmplitude(float) override;
 };
 
 #endif // JACK_MIDI_SYNTH_OSCILLATORS_H

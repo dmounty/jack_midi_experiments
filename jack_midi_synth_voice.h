@@ -42,7 +42,7 @@ class Voice {
     void releaseVoice();
     void update(const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*);
     void render(float*, int, int);
-    float freq(int);
+    float freq(int) const;
     void setSampleRate(int);
     void setBufferSize(int);
 };

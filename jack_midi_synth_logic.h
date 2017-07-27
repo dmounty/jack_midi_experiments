@@ -34,12 +34,12 @@ class JackSynth : public JackApp {
     void add_ports();
     void connect_ports();
     void initialize_voices();
-    virtual int srate(jack_nframes_t);
-    virtual int bsize(jack_nframes_t);
-    virtual void jack_shutdown();
-    virtual int process(jack_nframes_t);
-    void cycleEventList(std::list<FloatEvent>&);
-    void interpolateEvents(const std::list<FloatEvent>&, std::vector<float>&);
+    virtual int srate(jack_nframes_t) override;
+    virtual int bsize(jack_nframes_t) override;
+    virtual void jack_shutdown() override;
+    virtual int process(jack_nframes_t) override;
+    void cycleEventList(std::list<FloatEvent>&) const;
+    void interpolateEvents(const std::list<FloatEvent>&, std::vector<float>&) const;
 };
 
 #endif  // JACK_MIDI_SYNTH_LOGIC_H

@@ -32,15 +32,15 @@ class LADSR : public Envelope {
       sustain = init_sustain;
       release = init_release;
     }
-    float getWeight(float);
-    virtual void pushDown();
+    virtual float getWeight(float) override;
+    virtual void pushDown() override;
 };
 
 
 class LAD : public Envelope {
   public:
     LAD(float init_attack, float init_decay, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay) {}
-    float getWeight(float);
+    float getWeight(float) override;
 };
 
 #endif // JACK_MIDI_SYNTH_ENVELOPES_H

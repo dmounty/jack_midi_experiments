@@ -35,14 +35,14 @@ void JackSynth::initialize_voices() {
   }
 }
 
-void JackSynth::cycleEventList(std::list<FloatEvent>& event_list) {
+void JackSynth::cycleEventList(std::list<FloatEvent>& event_list) const {
   FloatEvent last_event = event_list.back();
   last_event.frame -= buffer_size;
   event_list.clear();
   event_list.push_back(last_event);
 }
 
-void JackSynth::interpolateEvents(const std::list<FloatEvent>& event_list, std::vector<float>& values) {
+void JackSynth::interpolateEvents(const std::list<FloatEvent>& event_list, std::vector<float>& values) const {
   if (event_list.size() == 1) {
     for (auto& value: values) value = event_list.back().value;
   } else {

@@ -89,7 +89,7 @@ void Voice::render(float* out, int global_frame, int length) {
   }
 }
 
-float Voice::freq(int note) {
+float Voice::freq(int note) const {
   return pow(2.0f, ((note - 69.0) / 12.0)) * 440.0;
 }
 
