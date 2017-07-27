@@ -16,6 +16,7 @@ class Pass : public Filter {
       FILTER_MODE_LOWPASS = 0,
       FILTER_MODE_HIGHPASS,
       FILTER_MODE_BANDPASS,
+      FILTER_MODE_NOTCH,
       kNumFilterModes
     };
     enum Parameters {
@@ -31,10 +32,10 @@ class Pass : public Filter {
     inline void calculateFeedbackAmount() { feedbackAmount = resonance + resonance/(1.0 - cutoff); }
     std::vector<float> buf;
   public:
-    Pass(FilterMode filter=FILTER_MODE_LOWPASS, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0) {
+    Pass(FilterMode filter=FILTER_MODE_NOTCH, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0) {
       setFilterMode(filter);
-      setCutoff(0.6);
-      setResonance(0.4);
+      setCutoff(0.99);
+      setResonance(0.01);
       calculateFeedbackAmount();
     }
     float process(float) override;

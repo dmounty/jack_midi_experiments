@@ -32,6 +32,9 @@ float Pass::process(float value) {
     case FILTER_MODE_BANDPASS:
       new_value = buf[0] - buf[buf.size()-1];
       break;
+    case FILTER_MODE_NOTCH:
+      new_value = value - buf[0] + buf[buf.size()-1];
+      break;
   }
   return new_value;
 }
