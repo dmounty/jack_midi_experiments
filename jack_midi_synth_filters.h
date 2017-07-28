@@ -32,7 +32,7 @@ class Pass : public Filter {
     inline void calculateFeedbackAmount() { feedbackAmount = resonance + resonance/(1.0 - cutoff); }
     std::vector<float> buf;
   public:
-    Pass(FilterMode filter=FILTER_MODE_NOTCH, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0) {
+    Pass(FilterMode filter=FILTER_MODE_LOWPASS, int init_order=2) : mode(kNumFilterModes), buf(init_order, 0.0) {
       setFilterMode(filter);
       setCutoff(0.99);
       setResonance(0.01);

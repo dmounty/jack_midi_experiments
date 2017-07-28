@@ -4,16 +4,13 @@
 
 class Envelope {
   protected:
-    float attack;
-    float decay;
-    float delay;
     bool down;
     bool sounding;
     bool pedal;
     float up_time;
     float up_weight;
   public:
-    Envelope(float, float, float);
+    Envelope() : down(false), sounding(false), pedal(false), up_time(0.0), up_weight(0.0) {}
     virtual void pushDown();
     void liftUp();
     void setPedal(bool);
@@ -22,13 +19,24 @@ class Envelope {
 };
 
 
-class LADSR : public Envelope {
+class LAD : public Envelope {
+  protected:
+    float attack;
+    float decay;
+    float delay;
+  public:
+    LAD(float init_attack, float init_decay, float init_delay=0.0) : attack(init_attack), decay(init_decay), delay(init_delay) {}
+    virtual float getWeight(float) override;
+};
+
+
+class LADSR : public LAD {
   private:
     float sustain;
     float release;
     bool in_release;
   public:
-    LADSR(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay), in_release(false) {
+    LADSR(float init_attack, float init_decay, float init_sustain, float init_release, float init_delay=0.0) : LAD(init_attack, init_decay, init_delay), in_release(false), sustain(init_sustain), release(init_release) {
       sustain = init_sustain;
       release = init_release;
     }
@@ -37,10 +45,16 @@ class LADSR : public Envelope {
 };
 
 
-class LAD : public Envelope {
+class DL4R4 : public Envelope {
+  private:
+    float L[4];
+    float R[4];
+    float in_release;
+    float delay;
   public:
-    LAD(float init_attack, float init_decay, float init_delay=0.0) : Envelope(init_attack, init_decay, init_delay) {}
+    DL4R4(float, float, float, float, float, float, float, float, float);
     float getWeight(float) override;
+    virtual void pushDown() override;
 };
 
 #endif // JACK_MIDI_SYNTH_ENVELOPES_H
