@@ -14,6 +14,7 @@ class Oscillator {
     virtual void setFloatParameter(int, float) {}
     virtual void setIntParameter(int, int) {}
     virtual void setBoolParameter(int, bool) {}
+    virtual void reset() { offset = 0.0; }
     const char* type;
 };
 
@@ -77,6 +78,17 @@ class Noise : public Oscillator {
   public:
     Noise() : distribution(-1.0, 1.0), Oscillator("Noise") {}
     virtual float getAmplitude(float) override;
+};
+
+class Sample : public Oscillator {
+  private:
+    std::vector<float> audio;
+    float pitch;
+    int sample;
+  public:
+    Sample(const char*, float=261.2);
+    virtual float getAmplitude(float) override;
+    virtual void reset() override;
 };
 
 #endif // JACK_MIDI_SYNTH_OSCILLATORS_H

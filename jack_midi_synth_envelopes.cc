@@ -18,8 +18,6 @@ bool Envelope::isSounding() {
   return sounding;
 }
 
-
-
 float linear_interpolate(float x_start, float y_start, float x_end, float y_end, float x) {
   float x_diff = x_end - x_start;
   float y_diff = y_end - y_start;

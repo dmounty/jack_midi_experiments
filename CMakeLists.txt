@@ -4,6 +4,7 @@ project (Jack)
 
 find_package(PkgConfig REQUIRED)
 pkg_search_module(JACK REQUIRED jack)
+pkg_search_module(SNDFILE REQUIRED sndfile)
 
 add_executable(jack_echo jack_echo.cc)
 # add the executable
@@ -27,6 +28,6 @@ add_executable( jack_midi_synth
   jack_midi_synth_voice.cc
 )
 # add the executable
-target_link_libraries(jack_midi_synth ${JACK_LIBRARIES})
-target_include_directories(jack_midi_synth PUBLIC ${JACK_INCLUDE_DIRS})
-target_compile_options(jack_midi_synth PUBLIC ${JACK_CFLAGS_OTHER})
+target_link_libraries(jack_midi_synth ${JACK_LIBRARIES} ${SNDFILE_LIBRARIES})
+target_include_directories(jack_midi_synth PUBLIC ${JACK_INCLUDE_DIRS} ${SNDFILE_INCLUDE_DIRS})
+target_compile_options(jack_midi_synth PUBLIC ${JACK_CFLAGS_OTHER} ${SNDFILE_CFLAGS_OTHER})

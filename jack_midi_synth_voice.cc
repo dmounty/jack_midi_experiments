@@ -13,6 +13,7 @@ Voice::Voice(int note) {
   trigger_frame = 0;
   velocity = 0.0;
   envelope = new LADSR(0.06, 0.25, 0.9, 1.5, 0.01);
+  osc_env_mixes.push_back(OscEnvMix(new Sample("test.wav"), new LADSR(0.1, 0.5, 0.9, 3.0), 0.8)); // Sample
   osc_env_mixes.push_back(OscEnvMix(new Sine(2.0),      new LADSR(0.06, 0.15, 0.8,  1.0, 0.015), 0.2));  // Sub
   osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0), new LADSR(0.06, 0.2,  0.65, 0.9, 0.015), 0.1));  // Sub fifth
   osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0),  new LADSR(0.05, 0.25, 0.5,  0.8, 0.02),  0.7));  // Main
@@ -45,7 +46,10 @@ void Voice::triggerVoice(float new_velocity, int first_frame) {
   velocity = new_velocity;
   trigger_frame = first_frame;
   envelope->pushDown();
-  for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->pushDown();
+  for (auto& osc_env_mix: osc_env_mixes) {
+    osc_env_mix.envelope->pushDown();
+    osc_env_mix.oscillator->reset();
+  }
 }
 
 void Voice::releaseVoice() {

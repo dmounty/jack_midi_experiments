@@ -19,6 +19,14 @@ class Envelope {
 };
 
 
+class Constant : public Envelope {
+  private:
+    float sustain;
+  public:
+    Constant(float init_sustain) : sustain(init_sustain) {}
+    virtual float getWeight(float time) { return sustain; }
+};
+
 class LAD : public Envelope {
   protected:
     float attack;
