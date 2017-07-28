@@ -24,6 +24,7 @@ class Voice {
     float pitch;
     float velocity;
     const std::vector<float>* bend;
+    const std::vector<float>* bend_freq;
     const std::vector<float>* mod_wheel;
     const std::vector<float>* expression;
     const std::vector<float>* sustain;
@@ -40,7 +41,7 @@ class Voice {
     bool isSounding();
     void triggerVoice(float, int);
     void releaseVoice();
-    void update(const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*);
+    void update(const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*, const std::vector<float>*);
     void render(float*, int, int);
     float freq(int) const;
     void setSampleRate(int);

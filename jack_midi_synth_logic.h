@@ -23,6 +23,7 @@ class JackSynth : public JackApp {
     std::list<FloatEvent> aftertouch_events;
     std::list<FloatEvent> sustain_events;
     std::vector<float> bend;
+    std::vector<float> bend_freq;
     std::vector<float> mod_wheel;
     std::vector<float> expression;
     std::vector<float> aftertouch;
@@ -40,6 +41,7 @@ class JackSynth : public JackApp {
     virtual int process(jack_nframes_t) override;
     void cycleEventList(std::list<FloatEvent>&) const;
     void interpolateEvents(const std::list<FloatEvent>&, std::vector<float>&) const;
+    void bendToFreq();
 };
 
 #endif  // JACK_MIDI_SYNTH_LOGIC_H

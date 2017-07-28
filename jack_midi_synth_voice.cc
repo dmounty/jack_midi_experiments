@@ -53,8 +53,9 @@ void Voice::releaseVoice() {
   for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->liftUp();
 }
 
-void Voice::update(const std::vector<float>* new_bend, const std::vector<float>* new_mod_wheel, const std::vector<float>* new_expression, const std::vector<float>* new_aftertouch, const std::vector<float>* new_sustain) {
+void Voice::update(const std::vector<float>* new_bend, const std::vector<float>* new_bend_freq, const std::vector<float>* new_mod_wheel, const std::vector<float>* new_expression, const std::vector<float>* new_aftertouch, const std::vector<float>* new_sustain) {
   bend = new_bend;
+  bend_freq = new_bend_freq;
   mod_wheel = new_mod_wheel;
   expression = new_expression;
   aftertouch = new_aftertouch;
@@ -68,11 +69,12 @@ void Voice::update(const std::vector<float>* new_bend, const std::vector<float>*
 }
 
 void Voice::render(float* out, int global_frame, int length) {
-  float freq = pow(2.0, (*bend)[bend->size()/2]) * pitch / sample_rate;
+  float raw_freq = pitch / sample_rate;
   float voice_channel[length];
   memset(voice_channel, 0, sizeof(voice_channel));
   for (auto& osc_env_mix: osc_env_mixes) {
     for (int frame=0; frame < length; ++frame) {
+      float freq = (*bend_freq)[frame] * raw_freq;
       int frames_since_trigger = frame + global_frame - trigger_frame;
       float time_since_trigger = static_cast<float>(frames_since_trigger) / sample_rate;
       float voice_weight = (*expression)[frame] * velocity * envelope->getWeight(time_since_trigger);

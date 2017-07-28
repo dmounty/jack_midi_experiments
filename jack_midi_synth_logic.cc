@@ -66,6 +66,10 @@ void JackSynth::interpolateEvents(const std::list<FloatEvent>& event_list, std::
   }
 }
 
+void JackSynth::bendToFreq() {
+  for (int i=0; i < bend.size(); ++i) bend_freq[i] = pow(2.0, bend[i]);
+}
+
 int JackSynth::process(jack_nframes_t nframes) {
   if (midi_input_ports.size() > 0) {
     cycleEventList(bend_events);
@@ -109,12 +113,13 @@ int JackSynth::process(jack_nframes_t nframes) {
   interpolateEvents(expression_events, expression);
   interpolateEvents(aftertouch_events, aftertouch);
   interpolateEvents(sustain_events, sustain);
+  bendToFreq();
   if (audio_output_ports.size() > 0) {
     auto out_port = audio_output_ports.front();
     auto out = reinterpret_cast<float*>(jack_port_get_buffer(out_port, nframes));
     memset(out, 0, nframes * 4);
     for (int note_num=0; note_num < voices.size() ; ++note_num) {
-      voices[note_num]->update(&bend, &mod_wheel, &expression, &aftertouch, &sustain);
+      voices[note_num]->update(&bend, &bend_freq, &mod_wheel, &expression, &aftertouch, &sustain);
       if (voices[note_num]->isSounding()) voices[note_num]->render(out, global_frame, nframes);
     }
     for (int frame=0; frame < nframes; ++frame) out[frame] = tanh(out[frame]) / 1.5707963;
@@ -152,6 +157,7 @@ int JackSynth::srate(jack_nframes_t nframes) {
 int JackSynth::bsize(jack_nframes_t nframes) {
   buffer_size = nframes;
   bend.resize(nframes);
+  bend_freq.resize(nframes);
   mod_wheel.resize(nframes);
   expression.resize(nframes);
   aftertouch.resize(nframes);
