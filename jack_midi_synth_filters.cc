@@ -18,23 +18,47 @@ void Pass::setFilterMode(Pass::FilterMode new_mode) {
   if (new_mode >= 0 && new_mode < kNumFilterModes) mode = new_mode;
 }
 
-float Pass::process(float value) {
-  float new_value = value;
-  buf[0] += cutoff * (value - buf[0] + feedbackAmount * (buf[0] - buf[1]));
-  for (int i=1; i < buf.size(); ++i) buf[i] += cutoff * (buf[i-1] - buf[i]);
+void Pass::process(float& value) {
+  buffer[0] += cutoff * (value - buffer[0] + feedbackAmount * (buffer[0] - buffer[1]));
+  for (int i=1; i < buffer.size(); ++i) buffer[i] += cutoff * (buffer[i-1] - buffer[i]);
   switch (mode) {
     case FILTER_MODE_LOWPASS:
-      new_value = buf[buf.size()-1];
+      value = buffer[buffer.size()-1];
       break;
     case FILTER_MODE_HIGHPASS:
-      new_value = value - buf[buf.size()-1];
+      value = value - buffer[buffer.size()-1];
       break;
     case FILTER_MODE_BANDPASS:
-      new_value = buf[0] - buf[buf.size()-1];
+      value = buffer[0] - buffer[buffer.size()-1];
       break;
     case FILTER_MODE_NOTCH:
-      new_value = value - buf[0] + buf[buf.size()-1];
+      value = value - buffer[0] + buffer[buffer.size()-1];
       break;
   }
-  return new_value;
+}
+
+void Delay::process(float& value) {
+  index %= buffer.size();
+  value += buffer[index] * feedback;
+  buffer[index++] = value;
+}
+
+void Delay::setParameter(int parameter, float value) {
+  if (value < 0.00005) value = 0.00005;
+  int new_size = static_cast<int>(value * sample_rate);
+  switch (parameter) {
+    case PARAMETER_DELAY:
+      delay = value;
+      if (buffer.size() != new_size) buffer.resize(new_size);
+      break;
+    case PARAMETER_FEEDBACK:
+      if (value > 1.0) value = 1.0;
+      feedback = value;
+      break;
+  }
+}
+
+void Delay::setSampleRate(int rate) {
+  Filter::setSampleRate(rate);
+  buffer.resize(sample_rate * delay);
 }

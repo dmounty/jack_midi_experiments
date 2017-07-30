@@ -21,6 +21,7 @@ Voice::Voice(int note) {
   osc_env_mixes.push_back(OscEnvMix(new Sine(1.0),      new LADSR(0.03, 0.15, 0.4,  0.6, 0.02),  0.4));  // Octave
   osc_env_mixes.push_back(OscEnvMix(new Pulse(2.0),     new LADSR(0.02, 0.1,  0.3,  0.5, 0.02),  0.05)); // Octave 2
   filters.push_back(new Pass);
+  filters.push_back(new Delay(0.1, 0.7));
 }
 
 Voice::~Voice() {
@@ -68,8 +69,10 @@ void Voice::update(const std::vector<float>* new_bend, const std::vector<float>*
   envelope->setPedal(pedal);
   for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.envelope->setPedal(pedal);
   for (auto& osc_env_mix: osc_env_mixes) osc_env_mix.oscillator->setFloatParameter(PitchedOscillator::PARAMETER_PULSE_CENTRE, 0.5 + (*mod_wheel)[mod_wheel->size()/2]*0.5);
-  for (auto filter: filters) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - (*aftertouch)[aftertouch->size()/2]);
-  for (auto filter: filters) filter->setParameter(Pass::PARAMETER_RESONANCE, (*aftertouch)[aftertouch->size()/2]);
+  for (auto filter: filters) {
+    if (strcmp(filter->type, "Pass") == 0) filter->setParameter(Pass::PARAMETER_CUTOFF, 1.0f - (*aftertouch)[aftertouch->size()/2]);
+    if (strcmp(filter->type, "Pass") == 0) filter->setParameter(Pass::PARAMETER_RESONANCE, (*aftertouch)[aftertouch->size()/2]);
+  }
 }
 
 void Voice::render(float* out, int global_frame, int length) {
@@ -87,7 +90,7 @@ void Voice::render(float* out, int global_frame, int length) {
   }
   for (auto& filter: filters) {
     for (int frame=0; frame < length; ++frame) {
-      voice_channel[frame] = filter->process(voice_channel[frame]);
+      filter->process(voice_channel[frame]);
     }
   }
   for (int frame=0; frame < length; ++frame) {
@@ -101,6 +104,7 @@ float Voice::freq(int note) const {
 
 void Voice::setSampleRate(int rate) {
   sample_rate = rate;
+  for (auto& filter: filters) filter->setSampleRate(rate);
 }
 
 void Voice::setBufferSize(int size) {
