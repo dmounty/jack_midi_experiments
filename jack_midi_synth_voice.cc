@@ -13,13 +13,13 @@ Voice::Voice(int note) {
   trigger_frame = 0;
   velocity = 0.0;
   envelope = new LADSR(0.06, 0.25, 0.9, 1.5, 0.01);
-  osc_env_mixes.push_back(OscEnvMix(new Sample("test.wav"), new LADSR(0.1, 0.5, 0.9, 3.0), 0.8)); // Sample
-  osc_env_mixes.push_back(OscEnvMix(new Sine(2.0),      new LADSR(0.06, 0.15, 0.8,  1.0, 0.015), 0.2));  // Sub
-  osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0), new LADSR(0.06, 0.2,  0.65, 0.9, 0.015), 0.1));  // Sub fifth
-  osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0),  new LADSR(0.05, 0.25, 0.5,  0.8, 0.02),  0.7));  // Main
-  osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0), new LADSR(0.04, 0.2,  0.7,  0.7, 0.02),  0.3));  // Fifth
-  osc_env_mixes.push_back(OscEnvMix(new Sine(1.0),      new LADSR(0.03, 0.15, 0.4,  0.6, 0.02),  0.4));  // Octave
-  osc_env_mixes.push_back(OscEnvMix(new Pulse(2.0),     new LADSR(0.02, 0.1,  0.3,  0.5, 0.02),  0.05)); // Octave 2
+  osc_env_mixes.push_back(OscEnvMix(new Audio("test.wav"), new LADSR(0.1, 0.5, 0.9, 3.0), 0.8));            // Sample
+  osc_env_mixes.push_back(OscEnvMix(new Sine(2.0),         new LADSR(0.06, 0.15, 0.8,  1.0, 0.015), 0.2));  // Sub
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(-1.0),    new LADSR(0.06, 0.2,  0.65, 0.9, 0.015), 0.1));  // Sub fifth
+  osc_env_mixes.push_back(OscEnvMix(new Triangle(0.0),     new LADSR(0.05, 0.25, 0.5,  0.8, 0.02),  0.7));  // Main
+  osc_env_mixes.push_back(OscEnvMix(new Sine(7.0/12.0),    new LADSR(0.04, 0.2,  0.7,  0.7, 0.02),  0.3));  // Fifth
+  osc_env_mixes.push_back(OscEnvMix(new Sine(1.0),         new LADSR(0.03, 0.15, 0.4,  0.6, 0.02),  0.4));  // Octave
+  osc_env_mixes.push_back(OscEnvMix(new Pulse(2.0),        new LADSR(0.02, 0.1,  0.3,  0.5, 0.02),  0.05)); // Octave 2
   filters.push_back(new Pass);
   filters.push_back(new Delay(0.1, 0.7));
 }

@@ -25,6 +25,8 @@ add_executable( jack_midi_synth
   jack_midi_synth_filters.cc
   jack_midi_synth_logic.cc
   jack_midi_synth_oscillators.cc
+  jack_midi_synth_sample.cc
+  jack_midi_synth_sample_manager.cc
   jack_midi_synth_voice.cc
 )
 # add the executable

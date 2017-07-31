@@ -1,8 +1,6 @@
-#include <iostream>
-
 #include "jack_midi_synth_oscillators.h"
 
-#include <sndfile.h>
+#include "jack_midi_synth_sample_manager.h"
 
 
 float PitchedOscillator::advanceOffset(float phase_step) {
@@ -59,32 +57,15 @@ float Noise::getAmplitude(float phase_step) {
   return distribution(generator);
 }
 
-Sample::Sample(const char* filename, float init_pitch) : pitch(init_pitch), Oscillator("Sample"), sample(0) {
-  SF_INFO sfinfo;
-  SNDFILE *sound_file = sf_open(filename, SFM_READ, &sfinfo);
-  if (int error=sf_error(sound_file)) {
-    std::cerr << sf_error_number(error) << std::endl;
-  } else {
-    audio.resize(sfinfo.frames);
-    int items = sfinfo.frames * sfinfo.channels;
-    std::vector<float> all_channels(items);
-    sf_read_float(sound_file, all_channels.data(), items);
-    for (int i=0; i < audio.size() ; ++i) {
-      for (int j=0; j < sfinfo.channels; ++j) {
-        audio[i] += all_channels[i * sfinfo.channels + j] / sfinfo.channels;
-      }
-    }
-  }
+Audio::Audio(const char* filename, float init_pitch) : Oscillator("Audio"), sample(0) {
+  SampleManager& sample_manager(SampleManager::get());
+  audio = sample_manager.getSample(filename);
 }
 
-float Sample::getAmplitude(float phase_step) {
-  if (audio.size()) {
-    sample %= audio.size();
-    return audio[sample++];
-  }
-  return 0;
+float Audio::getAmplitude(float phase_step) {
+  return audio->getAmplitude(sample++);
 }
 
-void Sample::reset() {
+void Audio::reset() {
   sample = 0;
 }

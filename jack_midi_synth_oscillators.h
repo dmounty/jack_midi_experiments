@@ -4,6 +4,8 @@
 #include <random>
 #include <cmath>
 
+#include "jack_midi_synth_sample.h"
+
 
 class Oscillator {
   protected:
@@ -80,13 +82,12 @@ class Noise : public Oscillator {
     virtual float getAmplitude(float) override;
 };
 
-class Sample : public Oscillator {
+class Audio : public Oscillator {
   private:
-    std::vector<float> audio;
-    float pitch;
+    Sample* audio;
     int sample;
   public:
-    Sample(const char*, float=261.2);
+    Audio(const char*, float=261.2);
     virtual float getAmplitude(float) override;
     virtual void reset() override;
 };
