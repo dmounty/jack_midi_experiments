@@ -12,6 +12,12 @@ target_link_libraries(jack_echo ${JACK_LIBRARIES})
 target_include_directories(jack_echo PUBLIC ${JACK_INCLUDE_DIRS})
 target_compile_options(jack_echo PUBLIC ${JACK_CFLAGS_OTHER})
 
+add_executable(jack_volca_fm jack_volca_fm.cc)
+# add the executable
+target_link_libraries(jack_volca_fm ${JACK_LIBRARIES})
+target_include_directories(jack_volca_fm PUBLIC ${JACK_INCLUDE_DIRS})
+target_compile_options(jack_volca_fm PUBLIC ${JACK_CFLAGS_OTHER})
+
 add_executable(jack_midi_stripe jack_midi_stripe.cc)
 # add the executable
 target_link_libraries(jack_midi_stripe ${JACK_LIBRARIES})
